@@ -1,121 +1,157 @@
-salaryData <- function(dkURL, yahooURL)
+####### ROTOGRINDERS SALARY DATA PULL ###########
 
-  dkURL <- 'https://www.draftkings.com/lineup/getavailableplayerscsv?contestTypeId=28&draftGroupId=9218'
-  yahooURL <- 'https://dfyql-ro.sports.yahoo.com/v2/export/contestPlayers?contestId=1176756'
+## Insert date in YYYY-MM-DD form & location you'd like to save file in quotes
+## ex - salaryData('2016-04-05', '~/Documents/Northwestern/498/MLB Scraped')
 
-  dkData <- read.csv(url(dkURL), stringsAsFactors = F)
-  yahooData <- read.csv(url(yahooURL), stringsAsFactors = F)
-  dkData$Name <- iconv(dkData$Name, "latin1", "UTF-8")
-  dkData$Name <- chartr('áéóñ', 'aeon', dkData$Name)
-  dkData$Name <- gsub('\\.', '', dkData$Name)
-  dkData$teamAbbrev <- toupper(dkData$teamAbbrev)
-  yahooData$First.Name <- gsub('\\.', '', yahooData$First.Name)
-  yahooData$Last.Name <- gsub('\\.', '', yahooData$Last.Name)
-  yahooData$Name <- paste0(yahooData$First.Name," ", yahooData$Last.Name)
-
-  unique(dkData$teamAbbrev)
-  unique(yahooData$Team)
+salaryData <- function(day, location) {
   
+  ## Load required packages
+
   library(rvest)
   library(splitstackshape)
   
-  teamsURL <- read_html('http://mlb.mlb.com/team/index.jsp')
-  teams <- as.data.frame(teamsURL %>%
-           html_nodes('h5 a') %>%
-           html_text(), stringsAsFactors = F)
-  teams$abbrev <- c('BAL', 'BOS', 'CWS', 'CLE', 'DET', 'HOU', 'KC', 'LAA', 'MIN', 'NYY',
-                    'OAK', 'SEA', 'TB', 'TEX', 'TOR', 'ARI', 'ATL', 'CHC', 'CIN', 'COL',
-                    'LAD', 'MIA', 'MIL', 'NYM', 'PHI' ,'PIT', 'SD', 'SF', 'STL', 'WAS')
+  ## Create list of daily fantasy sites - for url. 
+  ## Also create empty list for storing list of sites, & number for iterating
+  ## Note - could add sites to this list, & function would be able to handle
+
+  sites <- c('draftkings', 'fanduel', 'yahoo')
+  urlList <- list()
+  a <- 0
   
-  teamsSite <- c('orioles','redsox','whitesox','indians','tigers','astros','royals','angels','twins',
-                 'yankees','athletics','mariners','rays','rangers','bluejays','dbacks','braves',
-                 'cubs','reds','rockies','dodgers','marlins','brewers','mets','phillies','pirates','padres',
-                 'giants','cardinals','nationals')
+  ## Get URL using day parameter & list of fantasy sites
   
-  rosterList <- list()
-  
-  for (i in 1:30) {
-    rosterURL <- read_html(paste0('http://m.',teamsSite[i],'.mlb.com/roster'))
-    r <- as.data.frame(rosterURL %>%
-                       html_nodes('.dg-name_display_first_last a') %>%
-                       html_text(), 
-                       stringsAsFactor= F)
-    r$team <- teamsSite[i]
-    r <- r[,c(2,1)]
-    rosterList[[i]] <- r
+  for (s in sites) {
+    a <- a + 1
+    siteURL <- read_html(paste0('https://rotogrinders.com/lineups/mlb?date=',day,'&site=',s))
+    urlList[[a]] <- siteURL
   }
+  
+  ## Create empty list for storing salaries
+  
+  salaryList <- list()
+  
+  ## Loop through each site & pull salaries for each available player
 
-  rosters <- do.call(rbind.data.frame, rosterList)
-  colnames(rosters) <- c('team', 'Name')
+  for (c in 1:length(sites))  { 
+  
+  ## Pull relevant information from grinders website
 
-  
-  date <- gsub('-','/',Sys.Date())
-  ppURL <- read_html(paste0('http://mlb.mlb.com/news/probable_pitchers/?c_id=mlb&date=',date))
-  allSP <- ppURL %>%
-           html_nodes('h5 span , h5 a, h5 a, h4') %>%
-           html_text()
-  allSP <- allSP[7:length(allSP)]
-  allSP <- data.frame(matrix(allSP,
-                             nrow = (length(allSP)/5),
-                             byrow = T))
-  allSP <- as.data.frame(cSplit(allSP, 'X1', sep='@'))
-  homeStarters <- allSP[,c(1:2,5:6)]
-  roadStarters <- allSP[,c(3:4,6,5)]
-  colnames(homeStarters) <- c('SP', 'hand', 'team', 'opponent')
-  colnames(roadStarters) <- c('SP', 'hand', 'team', 'opponent')
-  probSP <- rbind(homeStarters, roadStarters)
-  
-  ### Position Player Lineups
-  
-  posPlayerURL <- read_html('http://www.rotowire.com/baseball/daily_lineups.htm')
-  posPlayer <- posPlayerURL %>%
-               html_nodes('.dlineups-hplayer a , .dlineups-mainbar-home a, .dlineups-mainbar-away a, .dlineups-vplayer a') %>%
-               html_text()
-  posPlayer <- data.frame(matrix(posPlayer,
-                                 nrow = (length(posPlayer)/20),
-                                 byrow =T))
-  roadTeam <- posPlayer[,c(1:11)]
-  colnames(roadTeam) <- c('team', 'opponent','One','Two','Three','Four','Five','Six','Seven','Eight','Nine')
-  roadTeam <- melt(roadTeam, id.vars=c('team', 'opponent'))
-  roadTeam <- roadTeam[order(roadTeam$team),]
-  homeTeam <- posPlayer[,c(1:2,12:20)]
-  colnames(homeTeam) <- c('team', 'opponent','One','Two','Three','Four','Five','Six','Seven','Eight','Nine')
-  homeTeam <- melt(homeTeam, id.vars=c('team', 'opponent'))
-  homeTeam <- homeTeam[order(roadTeam$team),]
-  
-  weatherURL <- read_html('http://www.rotowire.com/baseball/weather.htm', encoding = "UTF-8")
-  weather <- weatherURL %>%
-             html_nodes('.weatherfeed-notes , .weatherfeed-goodweather, .weatherfeed-teams') %>%
-             html_text(trim =T)
-  
-  ####### ROTOGRINDERS - MAY BE BEHIND PAYWALL, SO KEEP EVERYTHING ABOVE ###########
-
-  dateGrinders <- Sys.Date()
-  grindersURL <- read_html(paste0('https://rotogrinders.com/lineups/mlb?date=',dateGrinders,'&site=draftkings'))
-  grinders <- grindersURL %>%
-              html_nodes('.lng , .meta, .stats .salary, .player-popup') %>%
-              html_text(trim =T)
-  grinders[grinders==""] <- '0'
-  grinders <- gsub('\\$', '', grinders)
-  grinders <- gsub('\\n', '', grinders)
-  grinders <- gsub("                        ", "_", grinders)
-  grinders <- gsub("                            ", "_", grinders)
-  grinders <- as.data.frame(matrix(grinders, nrow = (length(grinders)/42), byrow=T))
-  head(grinders)
-  awayGrinders <- grinders[,1:22]
-  homeGrinders <- grinders[,c(2,1,23:42)]
+    grinders <- urlList[[c]] %>%
+                html_nodes('.players .player-popup , .mascot, .meta, .stats .salary, .position, .pname .player-popup') %>%
+                html_text(trim =T)
     
+  ## Make missing entries 0 - note this is for players who are playing but do NOT have a salary
+  ## This is important to note because players with salary 0 should be ignored
+    
+    grinders[grinders==""] <- '0'
+    
+  ## Remove extraneous text coming from rvest pull
+    
+    grinders <- gsub('\\$', '', grinders)
+    grinders <- gsub('\\n', '', grinders)
+    grinders <- gsub("                            ", "_", grinders)
+    grinders <- gsub("                        ", "_", grinders)
+  
+  ## Put player data into a data frame organized by game
+    
+    grinders <- as.data.frame(matrix(grinders, 
+                                     nrow = (length(grinders)/60), 
+                                     byrow=T), 
+                              stringsAsFactors = F)
+  
+  ## Create a list of NL teams - used for removing pitchers being double counted in games played in NL Parks    
+    
+    nlList <- c('Marlins', 'Mets', 'Nationals', 'Phillies', 'Braves',
+                'Cubs', 'Pirates', 'Reds', 'Brewers', 'Cardinals',
+                'Rockies', 'Dbacks', 'Padres', 'Giants', 'Dodgers')
+    
+  ## Create an empty list for formatting players within the same DF
+    
+    playerStack <- list()
+    
+  ## Function that stacks players by lineup spot within each game
+  ## Necessary based on formatting of original data pull
+  
+    stacker <- function(df) {
+      l <- 0
+      for (i in seq(5, 29, 3)) {
+        l <- l + 1
+        n <- i + 1
+        j <- i + 2
+        d <- df[,c(1,2,i,n,j)]
+        d$lineupSpot <- l
+        colnames(d) <- c('team', 'opponent', 'player', 'position', 'attributes_2','lineupSpot')
+        playerStack[[l]] <- d
+      }
+      s <- 0
+      for (i in seq(34, 58, 3)) {
+        s <- s + 1
+        l <- l + 1
+        n <- i + 1
+        j <- i + 2
+        d <- df[,c(2,1,i,n,j)]
+        d$lineupSpot <- s
+        colnames(d) <- c('team', 'opponent', 'player', 'position', 'attributes_2','lineupSpot')
+
+        playerStack[[l]] <- d
+      }
+      
+      ## Note - pitchers handled separately here because of additional extraneous data that must be removed
+      
+      l <- l + 1
+      roadPitch <- grinders[,c(1:4)]
+      homePitch <- grinders[,c(2,1,32,33)]
+      colnames(roadPitch) <- c('team','opponent','player','attributes')
+      colnames(homePitch) <- c('team','opponent','player','attributes')
+      roadPitch <- roadPitch[!roadPitch$opponent %in% nlList,]
+      homePitch <- homePitch[!homePitch$team %in% nlList,]
+      totalPitch <- as.data.frame(rbind(roadPitch, homePitch), stringsAsFactors = F)
+      totalPitch <- as.data.frame(cSplit(totalPitch, 
+                                         'attributes', 
+                                         sep='_'), stringsAsFactors = F)
+      totalPitch <- totalPitch[,c(1:3,5)]
+      totalPitch$position <- 'pitcher'
+      totalPitch$lineupSpot <- 9
+      totalPitch <- totalPitch[,c(1:3,5,4,6)]
+      totalPitch[,c(1:3)] <- sapply(totalPitch[,c(1:3)], as.character)
+      
+      ## Stack pitchers onto existing postional players file, then convert to data frame
+      
+      playerStack[[l]] <- totalPitch
+      playerDF <- do.call(rbind.data.frame, playerStack)
+      playerDF$attributes_2 <- gsub('K', 
+                                    '', 
+                                    playerDF$attributes_2)
+      playerDF$attributes_2 <- as.numeric(as.character(playerDF$attributes_2))
+      playerDF <- playerDF[order(playerDF$team,
+                                 playerDF$opponent,
+                               playerDF$lineupSpot),]
+      
+      ## Change column name to salary, and add in variable that indicates the site the salaries come from
+      
+      colnames(playerDF)[5] <- 'salary'
+      playerDF$site <- sites[c]
+      return(playerDF)
+    }
+    
+    ## Run this function for each site, then stack on top of each other
+    
+    grindersList <- stacker(grinders)
+    salaryList[[c]] <- grindersList
+  }
+  
+  ## Final output is a dataframe that has the salaries for each site stacked on top of one and other
+  
+  grindersDF <- do.call(rbind.data.frame, salaryList) 
+  setwd(location)
+  write.csv(grindersDF, paste0(day,"_DailyFantasy.csv"), row.names = F)
+}
+
+## Run function to save file at desired location
+  
+salaryData('2016-04-05', '~/Documents/Northwestern/498/MLB Scraper')
 
   
   
-   
-  
-  
-
-
-  
-## TO DO - Turn into massive function
-## Figure out what to do with weather data
-## Scrap everything and use the rotogrinders data
 
   
