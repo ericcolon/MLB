@@ -53,6 +53,9 @@ salaryData <- function(day, location) {
     grinders <- gsub("                        ", "_", grinders)
   
   ## Put player data into a data frame organized by game
+    if(length(grinders) %% 60 != 0) {
+      message('Something weird is going on with RotoGrinders page')
+    } 
     
     grinders <- as.data.frame(matrix(grinders, 
                                      nrow = (length(grinders)/60), 
@@ -149,7 +152,7 @@ salaryData <- function(day, location) {
 
 ## Run function to save file at desired location
   
-salaryData('2016-04-05', '~/Documents/Northwestern/498/MLB Scraper')
+salaryData('2016-04-08', '~/Documents/Northwestern/498/MLB Scraper')
 
   
   
