@@ -77,10 +77,11 @@ pitchRxScraper <- function(startDate, endDate, directory) {
                                    test$home_team_runs - lag(test$home_team_runs))))
   
   setwd(directory)
+  length(fullData[is.na(fullData$batter_name),])
   write.csv(test, paste0('scraper_',startDate,"_",endDate,'.csv'), row.names = FALSE)
   return(test)
 }
-new <- pitchRxScraper('2016-04-04','2016-04-16', '~/Documents/Northwestern/498/MLB Scraper/pitchRx Data')
+new <- pitchRxScraper('2016-04-17','2016-04-23', '~/Documents/Northwestern/498/MLB Scraper/pitchRx Data')
 
 ## Stacks existing player database with new data - see example full data
 
@@ -183,7 +184,7 @@ modelFile <- function(df) {
   return(modelDF)
   write.csv(modelDF, 'modelFile.csv')
 }
-fullData <- dataConvert(fullData)
+fullData <- modelFile(fullData)
 
 ## Creates RBI percentages - note looks like it is not working now
 ## Not used for modeling, so not a huge deal, will fix later
@@ -207,20 +208,73 @@ rbiData <- rbiPerc(fullData)
 ## Will also have to create a manual match list between RotoGrinders names & these name
 
 playerMatch <- function(newDF, oldFile, directory) {
+  setwd(directory)
   g <- read.csv(oldFile, stringsAsFactors = F)
-  g <- as.data.frame(rbind(newDF, g))
-  g[,2] <- ifelse(g[,1] == 666560, 'Byung Ho Park',
-                  ifelse(g[,1] == 624424, 'Michael Conforto',
-                         ifelse(g[,1] == 628329, 'Rusney Castiloo',
-                                ifelse(g[,1] == 607074, 'Carlos Rodon', g[,2]))))
+  if(colnames(g)[2] == 'batter_name') {
+    d <- newDF[,c('batter', 'batter_name')]
+    d$dups <- duplicated(d$batter_name)
+    d <- filter(d, dups == F)
+    d$dups <- NULL
+  } 
+  if(colnames(g)[2] == 'pitcher_name') {
+    d <- newDF[,c('pitcher', 'pitcher_name')]
+    d$dups <- duplicated(d$pitcher_name)
+    d <- filter(d, dups == F)
+    d$dups <- NULL
+  }
+  g <- as.data.frame(rbind(d, g))
+  g[,2] <- ifelse(g[,1] == 666560, 'Byung-ho Park',
+           ifelse(g[,1] == 624424, 'Michael Conforto',
+           ifelse(g[,1] == 628329, 'Rusney Castillo',
+           ifelse(g[,1] == 607074, 'Carlos Rodon',
+           ifelse(g[,2] == 'Carlos Matias', 'Carlos Martinez',
+           ifelse(g[,2] == 'C.C. Sabathia', 'CC Sabathia',
+           ifelse(g[,2] == 'Christopher Archer', 'Chris Archer',
+           ifelse(g[,2] == 'Dae Ho Lee', 'Dae-Ho Lee',
+           ifelse(g[,2] == 'Daniel Santana', 'Danny Santana',
+           ifelse(g[,2] == 'Daniel Valencia', 'Danny Valencia',
+           ifelse(g[,2] == 'Senger Peralta', 'David Peralta',
+           ifelse(g[,2] == 'Douglas Fister', 'Doug Fister',
+           ifelse(g[,2] == 'Devaris Gordon', 'Dee Gordon',
+           ifelse(g[,2] == 'Delino DeShieldsJr.', 'Delino DeShields',
+           ifelse(g[,2] == 'Frederick Freeman', 'Freddie Freeman',
+           ifelse(g[,2] == 'Howard Kendrick', 'Howie Kendrick',
+           ifelse(g[,2] == 'Ivan De JesusJr.', 'Ivan De Jesus',
+           ifelse(g[,2] == 'Jacob Realmuto', 'J.T. Realmuto',
+           ifelse(g[,2] == 'Jacob DeGrom', 'Jacob deGrom',
+           ifelse(g[,2] == 'Jacob Marisnick', 'Jake Marisnick',
+           ifelse(g[,2] == 'JR Murphy', 'John Murphy',
+           ifelse(g[,2] == 'Jonathan Moscot', 'Jon Moscot',
+           ifelse(g[,2] == 'Jonathan Gray', 'Jon Gray',
+           ifelse(g[,2] == 'Jonathan Jay', 'Jon Jay',
+           ifelse(g[,2] == 'Jonathon Niese', 'Jon Niese',
+           ifelse(g[,2] == 'Khristopher Davis', 'Khris Davis',
+           ifelse(g[,2] == 'Manuel Machado', 'Manny Machado',
+           ifelse(g[,2] == 'Matthew Adams', 'Matt Adams',
+           ifelse(g[,2] == 'Matt Den Dekker', 'Matt den Dekker',
+           ifelse(g[,2] == 'Matthew Duffy', 'Matt Duffy',
+           ifelse(g[,2] == 'Matthew Joyce', 'Matt Joyce',
+           ifelse(g[,2] == 'Matthew Wisler', 'Matt Wisler',
+           ifelse(g[,2] == 'Mitchell Moreland', 'Mitch Moreland',
+           ifelse(g[,2] == 'B.J. Upton', 'Melvin Upton Jr.',
+           ifelse(g[,2] == 'Nathan Karns', 'Nate Karns',
+           ifelse(g[,2] == 'Nicholas Tropeano', 'Nick Tropeano',
+           ifelse(g[,2] == 'David Herrera', 'Odubel Herrera',
+           ifelse(g[,2] == 'Raciel Iglesias', 'Raisel Iglesias',
+           ifelse(g[,2] == 'Steven Souza', 'Steve Souza',
+           ifelse(g[,2] == 'Timothy Beckham', 'Tim Beckham',
+           ifelse(g[,2] == 'Wellington Castillo', 'Welington Castillo',
+           ifelse(g[,2] == 'Zachary Davies', 'Zach Davies',
+           ifelse(g[,2] == 'Zachary Cozart', 'Zack Cozart', g[,2])))))))))))))))))))))))))))))))))))))))))))
+  
   g$dups <- duplicated(g[,1])
   g <- filter(g, dups == F)
   g$dups <- NULL
   write.csv(g, oldFile, row.names = F)
   return(g)
 }
-batterLookup <- playerMatch(batterLookup, 'batterLookup.csv', '~/Documents/Northwestern/498/MLB Scraper/pitchRx Data')
-pitcherLookup <- playerMatch(pitcherLookup, 'pitcherLookup.csv', '~/Documents/Northwestern/498/MLB Scraper/pitchRx Data')
+batterLookup <- playerMatch(fullData, 'batterLookup.csv', '~/Documents/Northwestern/498/MLB Scraper/pitchRx Data')
+pitcherLookup <- playerMatch(fullData, 'pitcherLookup.csv', '~/Documents/Northwestern/498/MLB Scraper/pitchRx Data')
 
 ## Not included in outcome variable: Batters - Stolen Base, Runs
 ## Pitchers - Inning Pitched, Win, Earned Run Allowed, Complete Game, Complete Game Shutout
@@ -237,10 +291,6 @@ for (i in 1:26) {
   myList[[i]] <- pitchRxScraper(a, b, '~/Documents/Northwestern/498/MLB Scraper/pitchRx Data')
   a <- a + 7
 }
-
-
-
-
 
 
 

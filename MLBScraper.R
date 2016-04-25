@@ -19,7 +19,7 @@ salaryData <- function(day, location) {
   a <- 0
   
   ## Get URL using day parameter & list of fantasy sites
-  
+
   for (s in sites) {
     a <- a + 1
     siteURL <- read_html(paste0('https://rotogrinders.com/lineups/mlb?date=',day,'&site=',s))
@@ -51,12 +51,36 @@ salaryData <- function(day, location) {
     grinders <- gsub('\\n', '', grinders)
     grinders <- gsub("                            ", "_", grinders)
     grinders <- gsub("                        ", "_", grinders)
-  
+ 
   ## Put player data into a data frame organized by game
     if(length(grinders) %% 60 != 0) {
-      message('Something weird is going on with RotoGrinders page')
-    } 
-    
+      message('Some Unknown Person or People is/are playing in one/some of the games')
+      missingCheck <- function() {
+        len <- length(grinders)
+        probs <- c(rep(T, len))
+        b <- 60 - length(grinders) %% 60
+        checker <- '_'
+        for (i in c(33,64,93,124,153,184,213,244,273,304,333,364,393,424,453,484,513,544,573,604,633,664,693,724,753,784,813,844,873)) {
+          check1 <- ifelse(substr(grinders[i],2,2) %in% checker, 'none', length(grinders[1:i]))
+          if (check1 != 'none') break
+          if (i > length(grinders)) break
+        }
+        id1 <- c(seq_along(probs), check1 - 4.5, check1 - 4.4, check1 - 4.3)
+        id2 <- c(seq_along(probs), check1 - 2.5, check1 - 2.4, check1 + 22.5, check1 + 22.6, check1 + 22.7)
+        id3 <- c(seq_along(probs), check1 - 2.5, check1 - 2.4)
+        for (i in 1:b) {
+          grinders[len+i] <- 'missing_missing'
+        }
+        grinders <- if(b%%3 == 0) {
+          grinders[order(id1)]
+        } else if (b%%5 == 0) {
+          grinders[order(id2)]
+        } else grinders[order(id3)]
+        return(grinders)
+      }
+      grinders <- missingCheck()
+    }
+ 
     grinders <- as.data.frame(matrix(grinders, 
                                      nrow = (length(grinders)/60), 
                                      byrow=T), 
@@ -146,15 +170,13 @@ salaryData <- function(day, location) {
   ## Final output is a dataframe that has the salaries for each site stacked on top of one and other
   
   grindersDF <- do.call(rbind.data.frame, salaryList) 
+  grindersDF$salary[is.na(grindersDF$salary)] <- 0
   setwd(location)
   write.csv(grindersDF, paste0(day,"_DailyFantasy.csv"), row.names = F)
+  return(grindersDF)
 }
 
 ## Run function to save file at desired location
-  
-salaryData('2016-04-08', '~/Documents/Northwestern/498/MLB Scraper')
 
-  
-  
-
+newSalary <- salaryData('2016-04-05', '~/Documents/Northwestern/498/MLB Scraper')
   
