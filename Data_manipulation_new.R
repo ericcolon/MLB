@@ -6,13 +6,51 @@ library(splitstackshape)
 library(reshape2)
 library(DescTools)
 
+######################  DON'T NEED TO RUN PAST THIS UNLESS RUNNING HISTORIC PULL  ##################
+
+## Use these to go back and get old data for pitch - atbat currently on github
+
+## Create an empty csv file that has column names that match the below (ignore the numbers)
+
+setwd('~/Documents/Northwestern/498/MLB Scraper/pitchRx Data/new')
+
+##  [1] "type"         "x"            "y"            "event_num"    "start_speed" 
+## [6] "pfx_x"        "pfx_z"        "px"           "pz"           "x0"          
+## [11] "z0"           "vx0"          "vy0"          "vz0"          "ax"          
+## [16] "ay"           "az"           "break_y"      "break_angle"  "break_length"
+## [21] "pitch_type"   "zone"         "spin_dir"     "spin_rate"    "pitcher"     
+## [26] "bb"           "ot"    
+
+date <- as.Date('2015-04-05')
+for (i in 1:26) {
+  add <- date + 7
+  e <- pitchRxScraper(date, add)
+  pitch <- pitchRxPitch('pitch.csv', e, '~/Documents/Northwestern/498/MLB Scraper/pitchRx Data/new', paste0(date,'_',add))
+  date <- date + 7
+}
+
+date <- as.Date('2016-04-04')
+for (i in 1:4) {
+  date2 <- date + 7
+  pitch <- pitchRxPitch('pitch.csv', e, '~/Documents/Northwestern/498/MLB Scraper/pitchRx Data/new', paste0(date,'_',add))
+  date <- date + 7
+}
+
 ################################ MLB Data Pull - Using Pitch fX dataset #################################
+
+## To start - make sure you have full pitch.csv & atbat.csv files at your desired working directory
+## By "full", I mean all data prior to the date range you put in for pitchRxScraper
+## All other data can be generated within this script, but just need to have that baseline
+## The code at the very bottom loops through historic data (for 2015 and through 5/1 2016)
 
 ## Insert desired start & end date, and directory you want to put the file in - see example "new"
 
 setwd('~/Documents/Northwestern/498/MLB Scraper/pitchRx Data/new')
 
 ## Function to scrape data from pitch Fx database - saved as df name 'dat'
+## Change to include new data - note at start: Atbat.csv runs through 5/7. To sync up, after running the code to get historic data
+## run the below code and then JUST pitchRxPitch for 2016-05-02 - 2016-05-07. From that point, when you add new days run the full code
+## To also update atbat.csv in addition to pitch.csv
 
 pitchRxScraper <- function(startDate, endDate) {
   dat <- scrape(start = startDate, end = endDate)
@@ -504,28 +542,4 @@ fullData <- modelFile(atbat, finalPitch)
 ###### MODELING !! ######
 
 ## use fullData dataset ##
-
-
-
-#####################################  DON'T NEED TO RUN PAST THIS #################################
-
-## Use these to go back and get old data - note toggle between 2015 & 2016 in date field
-
-date <- as.Date('2015-04-05')
-for (i in 1:26) {
-  add <- date + 7
-  e <- pitchRxScraper(date, add)
-  pitch <- pitchRxPitch('pitch.csv', e, '~/Documents/Northwestern/498/MLB Scraper/pitchRx Data/new', paste0(date,'_',add))
-  date <- date + 7
-}
-
-date <- as.Date('2016-04-04')
-for (i in 1:4) {
-  date2 <- date + 7
-  pitch <- pitchRxPitch('pitch.csv', e, '~/Documents/Northwestern/498/MLB Scraper/pitchRx Data/new', paste0(date,'_',add))
-  date <- date + 7
-}
-
-atbat <- do.call(rbind.data.frame, myList)
-write.csv(atbat, 'atbat.csv', row.names = F)
-tail(atbat)
+head(fullData)
