@@ -41,7 +41,6 @@ for (i in 1:4) {
 ## To start - make sure you have full pitch.csv & atbat.csv files at your desired working directory
 ## By "full", I mean all data prior to the date range you put in for pitchRxScraper
 ## All other data can be generated within this script, but just need to have that baseline
-## The code at the very bottom loops through historic data (for 2015 and through 5/1 2016)
 
 ## Insert desired start & end date, and directory you want to put the file in - see example "new"
 
@@ -542,4 +541,88 @@ fullData <- modelFile(atbat, finalPitch)
 ###### MODELING !! ######
 
 ## use fullData dataset ##
-head(fullData)
+
+library(caret)
+library(xgboost)
+
+rand <- runif(nrow(fullDataModel), min = 0, max = 1)
+fullData$rand <- rand
+
+train <- filter(fullData, rand > .25)
+test <- filter(fullData, rand <= .25)
+
+y <- train$outcome - 1
+x <- test$outcome
+
+train <- train[,c(7:13,15:21)]
+test <- test[,c(7:13,15:21)]
+
+trainMatrix <- as.matrix(train)
+testMatrix <- as.matrix(test)
+
+numberOfClasses <- length(unique(y))
+
+params <- list('objective' = 'multi:softprob',
+               'eval_metric' = 'mlogloss',
+               'num_class' = numberOfClasses,
+               'eta' = .2,
+               'subsample' = .75
+               )
+
+cv.nround <- 5
+cv.nfold <- 3
+
+boost.cv <- xgb.cv(param=params, 
+                   data=trainMatrix, 
+                   label = y, 
+                   nfold = cv.nfold, 
+                   nrounds = cv.nround)
+
+boost <- xgboost(param = params,
+                 data = trainMatrix,
+                 label = y,
+                 nrounds = 50)
+
+model <- xgb.dump(boost, with.stats = T)
+model[1:10]
+
+names <- dimnames(trainMatrix)[[2]]
+
+importance_matrix <- xgb.importance(names, model = boost)
+
+install.packages('devtools')
+library(devtools)
+
+
+packageURL <- 'https://cran.r-project.org/bin/macosx/mavericks/contrib/3.3/Ckmeans.1d.dp_3.4.0.tgz'
+install_url(packageURL)
+library(Ckmeans.1d.dp)
+
+xgb.plot.importance(importance_matrix)
+install.packages('installR')
+
+importance_matrix
+
+prob <- as.data.frame(matrix(predict(boost, testMatrix), ncol = 7, byrow = T))
+
+prob$outcome <- x
+prob$error <- as.numeric(ifelse(prob$outcome == 7, 1 - prob$V7,
+              ifelse(prob$outcome == 6, 1 - prob$V6,
+              ifelse(prob$outcome == 5, 1 - prob$V5,
+              ifelse(prob$outcome == 4, 1 - prob$V4,
+              ifelse(prob$outcome == 3, 1 - prob$V3,
+              ifelse(prob$outcome == 2, 1 - prob$V2,
+              ifelse(prob$outcome == 1, 1 - prob$V1, 0))))))))
+
+Desc(prob$error)
+Desc(prob$outcome)
+
+## Predicted probabilities relative to accuracy
+
+(1- mean(prob[prob$outcome == 1,'error'])) / (nrow(prob[prob$outcome == 1,]) / nrow(prob))
+(1- mean(prob[prob$outcome == 2,'error'])) / (nrow(prob[prob$outcome == 2,]) / nrow(prob))
+(1- mean(prob[prob$outcome == 3,'error'])) / (nrow(prob[prob$outcome == 3,]) / nrow(prob))
+(1- mean(prob[prob$outcome == 4,'error'])) / (nrow(prob[prob$outcome == 4,]) / nrow(prob))
+(1- mean(prob[prob$outcome == 5,'error'])) / (nrow(prob[prob$outcome == 5,]) / nrow(prob))
+(1- mean(prob[prob$outcome == 6,'error'])) / (nrow(prob[prob$outcome == 6,]) / nrow(prob))
+(1- mean(prob[prob$outcome == 7,'error'])) / (nrow(prob[prob$outcome == 7,]) / nrow(prob))
