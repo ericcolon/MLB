@@ -619,10 +619,14 @@ Desc(prob$outcome)
 
 ## Predicted probabilities relative to accuracy
 
-(1- mean(prob[prob$outcome == 1,'error'])) / (nrow(prob[prob$outcome == 1,]) / nrow(prob))
-(1- mean(prob[prob$outcome == 2,'error'])) / (nrow(prob[prob$outcome == 2,]) / nrow(prob))
-(1- mean(prob[prob$outcome == 3,'error'])) / (nrow(prob[prob$outcome == 3,]) / nrow(prob))
-(1- mean(prob[prob$outcome == 4,'error'])) / (nrow(prob[prob$outcome == 4,]) / nrow(prob))
-(1- mean(prob[prob$outcome == 5,'error'])) / (nrow(prob[prob$outcome == 5,]) / nrow(prob))
-(1- mean(prob[prob$outcome == 6,'error'])) / (nrow(prob[prob$outcome == 6,]) / nrow(prob))
-(1- mean(prob[prob$outcome == 7,'error'])) / (nrow(prob[prob$outcome == 7,]) / nrow(prob))
+err <- 0
+
+err[1] <- round((1- mean(prob[prob$outcome == 1,'error'])) / (nrow(prob[prob$outcome == 1,]) / nrow(prob)),2)
+err[2] <- round((1- mean(prob[prob$outcome == 2,'error'])) / (nrow(prob[prob$outcome == 2,]) / nrow(prob)),2)
+err[3] <- round((1- mean(prob[prob$outcome == 3,'error'])) / (nrow(prob[prob$outcome == 3,]) / nrow(prob)),2)
+err[4] <- round((1- mean(prob[prob$outcome == 4,'error'])) / (nrow(prob[prob$outcome == 4,]) / nrow(prob)),2)
+err[5] <- round((1- mean(prob[prob$outcome == 5,'error'])) / (nrow(prob[prob$outcome == 5,]) / nrow(prob)),2)
+err[6] <- round((1- mean(prob[prob$outcome == 6,'error'])) / (nrow(prob[prob$outcome == 6,]) / nrow(prob)),2)
+err[7] <- round((1- mean(prob[prob$outcome == 7,'error'])) / (nrow(prob[prob$outcome == 7,]) / nrow(prob)),2)
+
+err
