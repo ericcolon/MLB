@@ -560,13 +560,16 @@ test <- test[,c(7:13,15:21)]
 trainMatrix <- as.matrix(train)
 testMatrix <- as.matrix(test)
 
+## XGboost
+
 numberOfClasses <- length(unique(y))
 
 params <- list('objective' = 'multi:softprob',
                'eval_metric' = 'mlogloss',
                'num_class' = numberOfClasses,
-               'eta' = .2,
-               'subsample' = .75
+               'eta' = .05,
+               'subsample' = .70,
+               'max_delta_step' = 5
                )
 
 cv.nround <- 5
@@ -581,52 +584,153 @@ boost.cv <- xgb.cv(param=params,
 boost <- xgboost(param = params,
                  data = trainMatrix,
                  label = y,
-                 nrounds = 50)
+                 nrounds = 150)
+
+library(devtools)
+library(Ckmeans.1d.dp)
 
 model <- xgb.dump(boost, with.stats = T)
-model[1:10]
 
 names <- dimnames(trainMatrix)[[2]]
 
 importance_matrix <- xgb.importance(names, model = boost)
 
-install.packages('devtools')
-library(devtools)
-
-
-packageURL <- 'https://cran.r-project.org/bin/macosx/mavericks/contrib/3.3/Ckmeans.1d.dp_3.4.0.tgz'
-install_url(packageURL)
-library(Ckmeans.1d.dp)
-
 xgb.plot.importance(importance_matrix)
-install.packages('installR')
-
-importance_matrix
 
 prob <- as.data.frame(matrix(predict(boost, testMatrix), ncol = 7, byrow = T))
 
 prob$outcome <- x
 prob$error <- as.numeric(ifelse(prob$outcome == 7, 1 - prob$V7,
-              ifelse(prob$outcome == 6, 1 - prob$V6,
-              ifelse(prob$outcome == 5, 1 - prob$V5,
-              ifelse(prob$outcome == 4, 1 - prob$V4,
-              ifelse(prob$outcome == 3, 1 - prob$V3,
-              ifelse(prob$outcome == 2, 1 - prob$V2,
-              ifelse(prob$outcome == 1, 1 - prob$V1, 0))))))))
-
-Desc(prob$error)
-Desc(prob$outcome)
+                                ifelse(prob$outcome == 6, 1 - prob$V6,
+                                       ifelse(prob$outcome == 5, 1 - prob$V5,
+                                              ifelse(prob$outcome == 4, 1 - prob$V4,
+                                                     ifelse(prob$outcome == 3, 1 - prob$V3,
+                                                            ifelse(prob$outcome == 2, 1 - prob$V2,
+                                                                   ifelse(prob$outcome == 1, 1 - prob$V1, 0))))))))
 
 ## Predicted probabilities relative to accuracy
 
 err <- 0
 
-err[1] <- round((1- mean(prob[prob$outcome == 1,'error'])) / (nrow(prob[prob$outcome == 1,]) / nrow(prob)),2)
-err[2] <- round((1- mean(prob[prob$outcome == 2,'error'])) / (nrow(prob[prob$outcome == 2,]) / nrow(prob)),2)
-err[3] <- round((1- mean(prob[prob$outcome == 3,'error'])) / (nrow(prob[prob$outcome == 3,]) / nrow(prob)),2)
-err[4] <- round((1- mean(prob[prob$outcome == 4,'error'])) / (nrow(prob[prob$outcome == 4,]) / nrow(prob)),2)
-err[5] <- round((1- mean(prob[prob$outcome == 5,'error'])) / (nrow(prob[prob$outcome == 5,]) / nrow(prob)),2)
-err[6] <- round((1- mean(prob[prob$outcome == 6,'error'])) / (nrow(prob[prob$outcome == 6,]) / nrow(prob)),2)
-err[7] <- round((1- mean(prob[prob$outcome == 7,'error'])) / (nrow(prob[prob$outcome == 7,]) / nrow(prob)),2)
+err[1] <- round((1- mean(prob[prob$outcome == 1,'error'])) / (nrow(prob[prob$outcome == 1,]) / nrow(prob)),3)
+err[2] <- round((1- mean(prob[prob$outcome == 2,'error'])) / (nrow(prob[prob$outcome == 2,]) / nrow(prob)),3)
+err[3] <- round((1- mean(prob[prob$outcome == 3,'error'])) / (nrow(prob[prob$outcome == 3,]) / nrow(prob)),3)
+err[4] <- round((1- mean(prob[prob$outcome == 4,'error'])) / (nrow(prob[prob$outcome == 4,]) / nrow(prob)),3)
+err[5] <- round((1- mean(prob[prob$outcome == 5,'error'])) / (nrow(prob[prob$outcome == 5,]) / nrow(prob)),3)
+err[6] <- round((1- mean(prob[prob$outcome == 6,'error'])) / (nrow(prob[prob$outcome == 6,]) / nrow(prob)),3)
+err[7] <- round((1- mean(prob[prob$outcome == 7,'error'])) / (nrow(prob[prob$outcome == 7,]) / nrow(prob)),3)
 
 err
+
+## Run gbm model
+library(gbm)
+
+trainGBM <- train
+trainGBM$outcome <- y
+head(trainGBM)
+
+gbmModel <- gbm(outcome ~ ., data = trainGBM,
+                distribution = 'multinomial',
+                n.trees = 500,
+                interaction.depth = 5,
+                shrinkage = .012,
+                bag.fraction = 0.75,
+                train.fraction = 0.85)
+
+relative.influence(gbmModel, n.trees = 500)
+head(test)
+head(trainGBM)
+predGBM <- as.data.frame(predict.gbm(gbmModel, test, n.trees = 500, type = 'response'))
+predGBM$outcome <- x
+colnames(predGBM)[1:7] <- c('V1', 'V2,' ,'V3', 'V4', 'V5', 'V6','V7')
+predGBM$error <- as.numeric(ifelse(predGBM$outcome == 7, 1 - predGBM$V7,
+                                ifelse(predGBM$outcome == 6, 1 - predGBM$V6,
+                                       ifelse(predGBM$outcome == 5, 1 - predGBM$V5,
+                                              ifelse(predGBM$outcome == 4, 1 - predGBM$V4,
+                                                     ifelse(predGBM$outcome == 3, 1 - predGBM$V3,
+                                                            ifelse(predGBM$outcome == 2, 1 - predGBM$V2,
+                                                                   ifelse(predGBM$outcome == 1, 1 - predGBM$V1, 0))))))))
+
+errG <- 0
+
+errG[1] <- round((1- mean(predGBM[predGBM$outcome == 1,'error'])) / (nrow(predGBM[predGBM$outcome == 1,]) / nrow(predGBM)),3)
+errG[2] <- round((1- mean(predGBM[predGBM$outcome == 2,'error'])) / (nrow(predGBM[predGBM$outcome == 2,]) / nrow(predGBM)),3)
+errG[3] <- round((1- mean(predGBM[predGBM$outcome == 3,'error'])) / (nrow(predGBM[predGBM$outcome == 3,]) / nrow(predGBM)),3)
+errG[4] <- round((1- mean(predGBM[predGBM$outcome == 4,'error'])) / (nrow(predGBM[predGBM$outcome == 4,]) / nrow(predGBM)),3)
+errG[5] <- round((1- mean(predGBM[predGBM$outcome == 5,'error'])) / (nrow(predGBM[predGBM$outcome == 5,]) / nrow(predGBM)),3)
+errG[6] <- round((1- mean(predGBM[predGBM$outcome == 6,'error'])) / (nrow(predGBM[predGBM$outcome == 6,]) / nrow(predGBM)),3)
+errG[7] <- round((1- mean(predGBM[predGBM$outcome == 7,'error'])) / (nrow(predGBM[predGBM$outcome == 7,]) / nrow(predGBM)),3)
+
+errG
+
+## Run nnet model
+
+library(nnet)
+
+mn <- multinom(outcome ~ ., data = trainGBM, Hess = T, model = T)
+nrow(trainGBM)
+predMN <- as.data.frame(predict(mn, test, type = 'probs'))
+predMN$outcome <- x
+colnames(predMN)[1:7] <- c('V1', 'V2,' ,'V3', 'V4', 'V5', 'V6','V7')
+predMN$error <- as.numeric(ifelse(predMN$outcome == 7, 1 - predMN$V7,
+                                   ifelse(predMN$outcome == 6, 1 - predMN$V6,
+                                          ifelse(predMN$outcome == 5, 1 - predMN$V5,
+                                                 ifelse(predMN$outcome == 4, 1 - predMN$V4,
+                                                        ifelse(predMN$outcome == 3, 1 - predMN$V3,
+                                                               ifelse(predMN$outcome == 2, 1 - predMN$V2,
+                                                                      ifelse(predMN$outcome == 1, 1 - predMN$V1, 0))))))))
+library(DescTools)
+errM <- 0
+
+errM[1] <- round((1- mean(predMN[predMN$outcome == 1,'error'])) / (nrow(predMN[predMN$outcome == 1,]) / nrow(predMN)),3)
+errM[2] <- round((1- mean(predMN[predMN$outcome == 2,'error'])) / (nrow(predMN[predMN$outcome == 2,]) / nrow(predMN)),3)
+errM[3] <- round((1- mean(predMN[predMN$outcome == 3,'error'])) / (nrow(predMN[predMN$outcome == 3,]) / nrow(predMN)),3)
+errM[4] <- round((1- mean(predMN[predMN$outcome == 4,'error'])) / (nrow(predMN[predMN$outcome == 4,]) / nrow(predMN)),3)
+errM[5] <- round((1- mean(predMN[predMN$outcome == 5,'error'])) / (nrow(predMN[predMN$outcome == 5,]) / nrow(predMN)),3)
+errM[6] <- round((1- mean(predMN[predMN$outcome == 6,'error'])) / (nrow(predMN[predMN$outcome == 6,]) / nrow(predMN)),3)
+errM[7] <- round((1- mean(predMN[predMN$outcome == 7,'error'])) / (nrow(predMN[predMN$outcome == 7,]) / nrow(predMN)),3)
+
+err
+errM
+errG
+
+## Run ensemble
+
+ens <- as.data.frame(x)
+colnames(ens) <- 'outcome'
+
+ens$V1 <- (prob$V1 + predGBM$V1 + predMN$V1) / 3
+ens$V2 <- (prob$V2 + predGBM$V2 + predMN$V2) / 3
+ens$V3 <- (prob$V3 + predGBM$V3 + predMN$V3) / 3
+ens$V4 <- (prob$V4 + predGBM$V4 + predMN$V4) / 3
+ens$V5 <- (prob$V5 + predGBM$V5 + predMN$V5) / 3
+ens$V6 <- (prob$V6 + predGBM$V6 + predMN$V6) / 3
+ens$V7 <- (prob$V7 + predGBM$V7 + predMN$V7) / 3
+
+
+ens$error <- as.numeric(ifelse(ens$outcome == 7, 1 - ens$V7,
+                                  ifelse(ens$outcome == 6, 1 - ens$V6,
+                                         ifelse(ens$outcome == 5, 1 - ens$V5,
+                                                ifelse(ens$outcome == 4, 1 - ens$V4,
+                                                       ifelse(ens$outcome == 3, 1 - ens$V3,
+                                                              ifelse(ens$outcome == 2, 1 - ens$V2,
+                                                                     ifelse(ens$outcome == 1, 1 - ens$V1, 0))))))))
+
+errE <- 0
+
+errE[1] <- round((1- mean(ens[ens$outcome == 1,'error'])) / (nrow(ens[ens$outcome == 1,]) / nrow(ens)),3)
+errE[2] <- round((1- mean(ens[ens$outcome == 2,'error'])) / (nrow(ens[ens$outcome == 2,]) / nrow(ens)),3)
+errE[3] <- round((1- mean(ens[ens$outcome == 3,'error'])) / (nrow(ens[ens$outcome == 3,]) / nrow(ens)),3)
+errE[4] <- round((1- mean(ens[ens$outcome == 4,'error'])) / (nrow(ens[ens$outcome == 4,]) / nrow(ens)),3)
+errE[5] <- round((1- mean(ens[ens$outcome == 5,'error'])) / (nrow(ens[ens$outcome == 5,]) / nrow(ens)),3)
+errE[6] <- round((1- mean(ens[ens$outcome == 6,'error'])) / (nrow(ens[ens$outcome == 6,]) / nrow(ens)),3)
+errE[7] <- round((1- mean(ens[ens$outcome == 7,'error'])) / (nrow(ens[ens$outcome == 7,]) / nrow(ens)),3)
+
+errorEval <- rbind(err, rbind(errM, rbind(errG, errE)))
+rownames(errorEval) <- c('XGBoost', 'Multinom', 'GBM', 'Ensemble')
+colnames(errorEval) <- c('Single', 'Double', 'Triple', 'HR', 'BB', 'K', 'Other')
+
+errorEval
+
+
+
