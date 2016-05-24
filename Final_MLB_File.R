@@ -374,10 +374,11 @@ atbat <- dataConvert(atbat)
 
 playerMatch <- function(newDF, var1, var2, directory) {
   if(var1 == 'pitcher') {
-    g <- newDF[,c(var1, var2, 'road', 'home', 'inning_side', 'p_throws')]
+    g <- newDF[,c(var1, var2, 'road', 'home', 'date', 'inning_side', 'p_throws')]
   } else {
-    g <- newDF[,c(var1, var2, 'road', 'home', 'inning_side')]
+    g <- newDF[,c(var1, var2, 'road', 'home', 'date','inning_side')]
   }
+  g <- g[rev(order(g$date)),]
   g$dups <- duplicated(g[,1])
   g <- filter(g, dups == F)
   g$dups <- NULL
@@ -729,9 +730,10 @@ modelFile <- function(predictData, clusterData, batterData, pitcherData, modelin
   } else {
     write.csv(modelDF, paste0('modelFileNew_',date,'.csv', row.names = F))
   }
+  modelDF <- modelDF[order(-modelDF$batter, modelDF$pitcher),]
+  modelDF$batter <- ifelse(modelDF$batter == 0, row.names(modelDF), modelDF$batter)
   return(modelDF)
 }
-
 newData <- modelFile(atbat, finalPitch, batMod, pitchMod, modelData, 'historic')
 
 ###### MODELING !! ######
@@ -1005,10 +1007,10 @@ salaryData <- function(day, location) {
   write.csv(grindersDF, paste0(day,"_DailyFantasy.csv"), row.names = F)
   return(grindersDF)
 }
-newSalary <- salaryData('2016-05-21', '~/Documents/Northwestern/498/MLB Scraper')
+newSalary <- salaryData('2016-05-22', '~/Documents/Northwestern/498/MLB Scraper')
 
 ## Convert Rotogrinders pull into modeling format
-
+head(newSalary)
 salaryModel <- function(newSalaryData, clusterData) {
   
   nlList <- c('Marlins', 'Mets', 'Nationals', 'Phillies', 'Braves',
@@ -1016,19 +1018,19 @@ salaryModel <- function(newSalaryData, clusterData) {
               'Rockies', 'Dbacks', 'Padres', 'Giants', 'Dodgers')
   
   ## Convert team names that come from Rotogrinders to match PitchRx
-  
+  newSalaryData <- newSalary
   teamLookup <- unique(newSalaryData$team)
   teamAbbrev <- c('ana', 'hou', 'oak', 'tor', 'atl', 'mil', 'sln', 'chn', 'ari', 'lan', 'sfn',
                   'cle', 'sea', 'mia', 'nyn', 'was', 'bal', 'sdn', 'phi', 'pit', 'tex', 'tba', 
                   'bos', 'cin', 'col', 'kca', 'det', 'min', 'cha', 'nya')
   teamLookup <- as.data.frame(cbind(teamLookup, teamAbbrev))
-  newSalary <- merge(newSalary, teamLookup, by.x = 'team', by.y = 'teamLookup')
-  newSalary <- merge(newSalary, teamLookup, by.x = 'opponent', by.y = 'teamLookup')
-  colnames(newSalary)[10] <- 'team2'
-  colnames(newSalary)[11] <- 'opponent2'
-  
+  newSalaryData <- merge(newSalaryData, teamLookup, by.x = 'team', by.y = 'teamLookup')
+  newSalaryData <- merge(newSalaryData, teamLookup, by.x = 'opponent', by.y = 'teamLookup')
+  colnames(newSalaryData)[10] <- 'team2'
+  colnames(newSalaryData)[11] <- 'opponent2'
+
   ## Match Pitcher Name from Rotogrinders to name in PitchRx to get pitcher Code
-  
+
   pitchersRoto <- filter(newSalaryData, position %in% c('P','pitcher'))
   pitchersRoto$dups <- duplicated(pitchersRoto$player)
   pitchersRoto <- filter(pitchersRoto, dups == F)
@@ -1072,12 +1074,13 @@ salaryModel <- function(newSalaryData, clusterData) {
   colnames(bullMatchups)[2] <- 'pitchTeam'
 
   ## Also merge in clustering data to get pitcher's cluster 
-  head(totalRoto)
+
   totalRoto <- as.data.frame(rbind(spMatchups, bullMatchups))
   totalRoto <- merge(totalRoto, finalPitch[,c('pitcher', 'cluster')], on = 'pitcher', all.x = T)
   totalRoto$cluster[is.na(totalRoto$cluster)] <- 5
   totalRoto$stand <- ifelse(totalRoto$p_throws == 'R' & totalRoto$stand == 'S', 'L',
                             ifelse(totalRoto$p_throws == 'L' & totalRoto$stand == 'S', 'R', totalRoto$stand))
+  totalRoto <- totalRoto[order(-totalRoto$batter, totalRoto$pitcher),]
   return(totalRoto)
 }
 totalRoto <- salaryModel(newSalary, finalPitch)
@@ -1085,28 +1088,26 @@ totalRoto <- salaryModel(newSalary, finalPitch)
 ## Create predictions on new data
 
 newDayData <- modelFile(totalRoto, finalPitch, batMod, pitchMod, modelData, 'new')
-
 testNew <- newDayData[,c(6:12,14:20)]
 testNew <- as.matrix(testNew)
 probNew <- as.data.frame(matrix(predict(boost2, testNew), ncol = 7, byrow = T))
 
 ## Combine predictions with pitcher Info
 
-## This function is a work in progress!! Need to integrate salary information & turn outcomes into fantasy points
-## Eventually need to integrate RBIs, Runs & Pitcher output data as well into this function
+## Take expected outcome from model & merge with salary & player info
 
-predictionAggs <- function(probabilities, predictionFile, bullpenData) {
-  
+predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLookup, pitchLookup, date) {
+
   ## Calculate the number of at bats for each batter vs starters & bullpen
 
-  probStarter <- as.data.frame(cbind(totalRoto[,1:8], probNew))
+  probStarter <- as.data.frame(cbind(predictionFile[,1:8], probs))
   probStarter <- filter(probStarter, type == 'SP')
   probStarter <- merge(probStarter, pitcherPitches, by = 'pitcher', all.x = T)
   probStarter <- merge(probStarter, batterPitches, by.x ='batTeam', by.y = 'team')
   probStarter$starterOuts <- ifelse(is.na(probStarter$mean.entry.outs), ceiling(probStarter$mean.outs.vs.starters * 0.75), ceiling((probStarter$mean.outs.vs.starters + probStarter$mean.outs) / 2))
   probStarter$starterBatters <- ifelse(is.na(probStarter$mean.entry.outs), ceiling(probStarter$mean.outs.vs.starters * 0.75), ceiling((probStarter$mean.batters.vs.starters + probStarter$mean.batters) / 2))
   probStarter$bullpenOuts <- 27 - probStarter$starterOuts
-  
+
   ## Get bullpen details
   bullpenOutsRatio <- bullpenData
   bullpenOutsRatio$dups <- duplicated(bullpenOutsRatio$team)
@@ -1114,10 +1115,10 @@ predictionAggs <- function(probabilities, predictionFile, bullpenData) {
   bullpenOutsRatio$dups <- NULL
   probStarter <- merge(probStarter, bullpenOutsRatio[,c('team', 'outsRatio')], by.x = 'pitchTeam', by.y = 'team', all.x = T)
   probStarter$bullpenBatters <- ceiling(probStarter$bullpenOuts * probStarter$outsRatio)
-  probStarter$starterMultiplier <- (probStarter$starterBatters - probStarter$lineupSpot) / 9 + 1
+  probStarter$starterMultiplier <- floor((probStarter$starterBatters - probStarter$lineupSpot) / 9 + 1)
   probStarter$bullpenOrder <- probStarter$lineupSpot - (probStarter$starterBatters %% 9)
   probStarter$bullpenOrder <- ifelse(probStarter$bullpenOrder < 1, probStarter$bullpenOrder + 9, probStarter$bullpenOrder)
-  probStarter$bullpenMulitplier <- ((probStarter$bullpenBatters - probStarter$bullpenOrder) / 9) 
+  probStarter$bullpenMulitplier <- floor(((probStarter$bullpenBatters - probStarter$bullpenOrder) / 9))
   bullpenMult <- probStarter[,c('pitcher', 'batter', 'pitchTeam', 'batTeam', 'bullpenMulitplier')]
 
   probStarter$singleAggProb <- probStarter$V1 * probStarter$starterMultiplier
@@ -1130,11 +1131,13 @@ predictionAggs <- function(probabilities, predictionFile, bullpenData) {
 
   ## Note not pulling pitcher info for now - can do that easily & should produce a separate expected outcome
   
-  probStarter <- probStarter[,c('batter','singleAggProb','doubleAggProb','tripleAggProb','hrAggProb','walkAggProb','strikeoutAggProb','otherAggProb')]
+  probStarterHit <- probStarter[,c('batter','singleAggProb','doubleAggProb','tripleAggProb','hrAggProb','walkAggProb','strikeoutAggProb','otherAggProb')]
+  probStarterPitch <- probStarter[,c('pitcher','starterOuts','singleAggProb','doubleAggProb','tripleAggProb','hrAggProb','walkAggProb','strikeoutAggProb','otherAggProb')]
+  
   
   ## Calculate each batters expected outcome vs. the aggregate bullpen
 
-  probBullpen <- as.data.frame(cbind(totalRoto[,c('batter', 'pitcher','lineupSpot','type','stand','pitchTeam','batTeam')], probNew))
+  probBullpen <- as.data.frame(cbind(predictionFile[,c('batter', 'pitcher','lineupSpot','type','stand','pitchTeam','batTeam')], probs))
   probBullpen <- filter(probBullpen, type == 'RP')
   probBullpen <- merge(probBullpen, bullpenData[,c('pitcher','stand','cont')], by = c('pitcher', 'stand'))
   probBullpen$singleOutcome <- probBullpen$V1 * probBullpen$cont
@@ -1164,10 +1167,22 @@ predictionAggs <- function(probabilities, predictionFile, bullpenData) {
   probBullpenG$otherAggProb <- probBullpenG$otherOutcome * probBullpenG$bullpenMulitplier
   
   probBullpenG <- probBullpenG[,c('batter','singleAggProb','doubleAggProb','tripleAggProb','hrAggProb','walkAggProb','strikeoutAggProb','otherAggProb')]
-  
+
   ## Stack batter outcomes vs starters & bullpen
   
-  totalBatterProb <- as.data.frame(rbind(probStarter, probBullpenG)) 
+  totalBatterProb <- as.data.frame(rbind(probStarterHit, probBullpenG)) 
+  
+  ## Create DF to exclude pitchers (pitcher batting stats don't count)
+  
+  totalBatterEx <- merge(totalBatterProb, pitchLookup, by.x = 'batter', by.y = 'pitcher')
+  totalBatterEx <- merge(totalBatterEx, pitchMod, by.x = 'batter', by.y = 'pitcher')
+  totalBatterEx <- filter(totalBatterEx, total > 10)
+  totalBatterEx$dups <- duplicated(totalBatterEx$batter)
+  totalBatterEx <- filter(totalBatterEx, dups == F)
+  totalBatterExclude <- unique(totalBatterEx$batter)
+  
+  totalBatterProb <- filter(totalBatterProb, !batter %in% totalBatterExclude)
+  
   totalBatterG <- group_by(totalBatterProb, batter)
   totalBatterG <- as.data.frame(summarise(totalBatterG,
                                           singleAggProb = sum(singleAggProb),
@@ -1177,58 +1192,108 @@ predictionAggs <- function(probabilities, predictionFile, bullpenData) {
                                           walkAggProb = sum(walkAggProb),
                                           strikeoutAggProb = sum(strikeoutAggProb),
                                           otherAggProb = sum(otherAggProb)))
-  ## Return this DF? Or convert into points first
   
-  ## I think what makes the most sense is to convert into points then produce a DF with points based on three sites scoring systems
-  ## Then merge that data back with salaries - data passed into optimization would be player name, salary, expected points
+  totalBatterG$dk <- (totalBatterG$singleAggProb * 3 +
+                        totalBatterG$doubleAggProb * 5 +
+                        totalBatterG$tripleAggProb * 8 +
+                        totalBatterG$hrAggProb * 10 +
+                        totalBatterG$walkAggProb * 2)
+  
+  totalBatterG$fd <- (totalBatterG$singleAggProb * 3 +
+                        totalBatterG$doubleAggProb * 6 +
+                        totalBatterG$tripleAggProb * 9 +
+                        totalBatterG$hrAggProb * 12 +
+                        totalBatterG$walkAggProb * 3)
+  
+  totalBatterG$yahoo <- (totalBatterG$singleAggProb * 2 +
+                           totalBatterG$doubleAggProb * 4 +
+                           totalBatterG$tripleAggProb * 6 +
+                           totalBatterG$hrAggProb * 8 +
+                           totalBatterG$walkAggProb * 2)
+  
+  totalBatterG <- totalBatterG[,c('batter','dk','fd','yahoo')]
+  totalBatterG <- totalBatterG[order(totalBatterG$yahoo),]
+  totalBatterG
   
 
+  ## Create dataset housing pitcher information - group all atbats by pitcher
+
+  totalPitcherG <- group_by(probStarterPitch, pitcher)
+  totalPitcherG <- as.data.frame(summarise(totalPitcherG, 
+                                 singleAggProb = sum(singleAggProb),
+                                 doubleAggProb = sum(doubleAggProb),
+                                 tripleAggProb = sum(tripleAggProb),
+                                 hrAggProb = sum(hrAggProb),
+                                 walkAggProb = sum(walkAggProb),
+                                 strikeoutAggProb = sum(strikeoutAggProb),
+                                 otherAggProb = sum(otherAggProb),
+                                 outs = (sum(starterOuts)/9)))
+
+  totalPitcherG$dk <- ((totalPitcherG$outs / 3) * 2.25 +
+                         totalPitcherG$strikeoutAggProb * 2 +
+                         (totalPitcherG$singleAggProb + totalPitcherG$doubleAggProb + totalPitcherG$tripleAggProb + totalPitcherG$hrAggProb + totalPitcherG$walkAggProb) * -0.6)
+  
+  totalPitcherG$fd <- ((totalPitcherG$outs / 3) * 3 +
+                         totalPitcherG$strikeoutAggProb * 3)
+  
+  totalPitcherG$yahoo <- (totalPitcherG$outs * 0.6 +
+                            totalPitcherG$strikeoutAggProb * 2)
+  
+  totalPitcherG <- totalPitcherG[,c('pitcher', 'dk', 'fd', 'yahoo')]
+  
+  ## Stack pitcher & batter outcomes into one data frame
+  
+  colnames(totalPitcherG)[1] <- 'player_code'
+  colnames(totalBatterG)[1] <- 'player_code'
+  
+  totalPlayerOutcome <- as.data.frame(rbind(totalPitcherG, totalBatterG))
+  totalPlayerOutcome <- group_by(totalPlayerOutcome, player_code)
+  totalPlayerOutcome <- as.data.frame(summarise(totalPlayerOutcome,
+                                                dk = sum(dk),
+                                                fd = sum(fd),
+                                                yahoo = sum(yahoo)))
+  colnames(totalPlayerOutcome) <- c('player_code', 'dkExp', 'fdExp', 'yahooExp')
+  
+  ## Create DF with salary info, positions & lineup spot for each player
+   
+  salaryInfo <- salaryInfo[,c(3:4,6,7,9)]
+  sal <- dcast(salaryInfo, player ~ site, value.var = c('salary'))
+  pos <- dcast(salaryInfo, player ~ site, value.var = c('position'))
+  colnames(pos) <- c('player', 'dkPos', 'fdPos', 'yahooPos')
+  salaryInfo$dups <- duplicated(salaryInfo$player)
+  salaryInfo <- filter(salaryInfo, dups == F)
+  salaryInfo$dups <- NULL
+  sal <- merge(sal, pos, by = 'player')
+  sal <- merge(sal, salaryInfo[,c('player','lineupSpot')], by = 'player')
+  
+  ## Create one total player lookup file
+  
+  pL <- pitchLookup[,c('pitcher', 'pitcher_name','team')]
+  bL <- batLookup[,c('batter','batter_name','team')]
+  colnames(pL) <- c('player_code', 'player', 'team')
+  colnames(bL) <- c('player_code', 'player', 'team')
+  playerLookupTotal <- as.data.frame(rbind(bL, pL))
+
+  ## Merge with salary info to get player names
+  
+  sal <- merge(sal, playerLookupTotal, by = 'player', all.x = T)
+  sal[is.na(sal)] <- 'NoName'
+  
+  ## Remove duplicates (comes from pitchers showing up twice) - no data loss
+
+  sal$dups <- duplicated(sal$player)
+  sal <- filter(sal, dups == F)
+  sal$dups <- NULL
+  
+  ## Merge Salary info with projected outcome
+  totalPitcherG
+  sal <- merge(sal, totalPlayerOutcome, by = 'player_code', all.x = T)
+  colnames(sal)[3:5] <- c('dkSal', 'fdSal', 'yahooSal')
+  write.csv(sal, paste0('newPreds',date,'.csv'), row.names = F)
+  return(sal)
 }
 
-probNew <- as.data.frame(cbind(totalRoto[,c('batter', 'pitcher','lineupSpot','type','stand')], probNew))
-probNew <- merge(probNew)
+## Generate final predictions
 
-## Merge probabilities with outs & batters faced team data
+finalPreds <- predictionAggs(probNew, totalRoto, bullpenData, newSalary, batterLookup, pitcherLookup, '2016-05-22')
 
-probNew <- merge(probNew, batterLookup, by = 'batter', all.x = T)
-probNew <- merge(probNew, batterPitches, by = 'team', all.x = T)
-colnames(probNew)[1] <- 'batTeam'
-
-## Create pitching dataset by team
-
-pitchingTotal <- merge(pitcherLookup, pitcherPitches, on = 'pitcher', all.x = T)
-pitchingTotal$type <- ifelse(pitchingTotal$mean.entry.outs > 9, 'RP', 'SP')
-
-## Create bullpen stats
-
-bullpen <- filter(pitchingTotal, type == 'RP')
-bullpen2 <- bullpen
-bullpen$stand <- 'R'
-bullpen2$stand <- 'L'
-bullpen <- as.data.frame(rbind(bullpen, bullpen2))
-bullpen <- merge(bullpen, pitchMod, by = c('pitcher', 'stand'), all.x = T)
-bullpen <- filter(bullpen, total > 5)
-
-## Calc Average Bullpen Outs relative to batters
-## Group by team to find total outs registered as a team by the bullpen
-
-bullpenG <- group_by(bullpen, team)
-bullpenG <- as.data.frame(summarise(bullpenG, totalOuts = sum(total)))
-bullpenNew <- merge(bullpen, bullpenG, by = 'team', all.x = T)
-bullpenNew$cont <- bullpenNew$total / bullpenNew$totalOuts
-bullpenNew$contCalc <- bullpenNew$cont * (bullpenNew$mean.batters / bullpenNew$mean.outs)
-head(bullpenNew)
-## Group by again to calculate mean difference in batters faced vs. outs gotten by team
-
-bullpenG <- group_by(bullpenNew, team)
-bullpenG <- as.data.frame(summarise(bullpenG, outRatio = sum(contCalc)))
-
-## Merge predictions with pitching dataset
-
-probNew <- merge(probNew, pitchingTotal[c(1:2,4:7)], by = 'pitcher', all.x = T)
-probNew$starterOuts <- ifelse(is.na(probNew$mean.entry.outs), ceiling(probNew$mean.outs.vs.starters * 0.75), ceiling((probNew$mean.outs.vs.starters + probNew$mean.outs) / 2))
-probNew$starterBatters <- ifelse(is.na(probNew$mean.entry.outs), ceiling(probNew$mean.outs.vs.starters * 0.75), ceiling((probNew$mean.batters.vs.starters + probNew$mean.batters) / 2))
-probNew$bullpenOuts <- 27 - probNew$starterOuts
-probNew <- merge(probNew, bullpenG, by = 'team', all.x = T)
-probNew$bullpenBatters <- ceiling(probNew$bullpenOuts * probNew$outRatio)
-head(probNew)
