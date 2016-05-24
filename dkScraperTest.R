@@ -69,7 +69,7 @@ salaryData <- function(day, location) {
         
         grinders <- if(b%%4 == 0) {
           grinders[order(id1)]
-        } else if (b%%5 == 0) {
+        } else if (b%%6 == 0 & b%%3 == 0) {
           grinders[order(id2)]
         } else grinders[order(id3)]
         return(grinders)
@@ -177,4 +177,4 @@ salaryData <- function(day, location) {
   write.csv(grindersDF, paste0(day,"_DailyFantasy.csv"), row.names = F)
   return(grindersDF)
 }
-newSalary <- salaryData('2016-05-23', '~/Documents/R Training')
+newSalary <- salaryData('2016-05-24', '~/Documents/R Training')
