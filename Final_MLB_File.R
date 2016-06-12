@@ -19,13 +19,13 @@ library(DescTools)
 ## Run below code to get up to date through 5/31
 
 setwd('~/Documents/Northwestern/498/MLB Scraper/pitchRx Data/new')
-date <- '2016-05-31'
+date <- '2016-06-10'
 
 pitchRxScraper <- function(startDate, endDate) {
   dat <- scrape(start = startDate, end = endDate)
   return(dat)
 }
-dat <- pitchRxScraper('2016-05-21', '2016-05-31')
+dat <- pitchRxScraper('2016-06-01', '2016-06-10')
 
 ## Create pitcher & at-bat files - these will be saved to your working directory
 
@@ -406,6 +406,175 @@ pitchRBIs <- batterRBIs[[2]]
 colnames(batRBIs) <- c('batter','rbiB_1', 'rbiB_2', 'rbiB_3', 'rbiB_4', 'rbiB_5', 'rbiB_6', 'rbiB_7', 'batTotal')
 colnames(pitchRBIs) <- c('pitcher','rbiP_1', 'rbiP_2', 'rbiP_3', 'rbiP_4', 'rbiP_5', 'rbiP_6', 'rbiP_7', 'pitchTotal')
 
+## Calc Runs
+
+runs <- function(data) {
+  d <- dat[['atbat']]
+  e <- dat[['runner']]
+  b <- d[,c('pitcher','batter','num','inning','event','gameday_link')]
+  cc <- e[,c('id','num','inning','gameday_link','score','earned')]
+  b$outcome <- b$outcome <- ifelse(b$event == 'Single', 1,
+                                   ifelse(b$event == 'Double', 2,
+                                          ifelse(b$event == 'Triple', 3,
+                                                 ifelse(b$event == 'Home Run', 4,
+                                                        ifelse(b$event == 'Walk' | b$event == 'Intent Walk' | b$event == 'Hit By Pitch', 5,
+                                                               ifelse(b$event == 'Strikeout' | b$event == 'Strikeout - DP', 6, 7))))))
+  
+  ## Calculate total outcome counts by batter & pitcher
+  
+  runBat <- b[,c('pitcher','batter','outcome')]
+  
+  ## Save file & Read in old data
+  
+  if(file.exists('runBat.csv')){
+    oldRunBat <- read.csv('runBat.csv', stringsAsFactors = F)
+    runBat <- as.data.frame(rbind(runBat, oldRunBat))
+  }
+
+  write.csv(runBat, 'runBat.csv', row.names = F)
+  
+  ## Create totals by outcome type - pitcher
+  
+  runPitch <- dcast(runBat, pitcher ~ outcome, value.var = 'outcome', fun.aggregate = length)
+  runPitch[is.na(runPitch)] <- 0
+  runPitch$total <- runPitch$`1` + runPitch$`2` + runPitch$`3` + runPitch$`4` + runPitch$`5` + runPitch$`6` + runPitch$`7`
+  colnames(runPitch) <- c('pitcher','totalOne','totalTwo','totalThr','totalFou','totalFiv','totalSix','totalSev','total') 
+  
+  ## Group by - to account for stacking of data
+  
+  runPitch <- group_by(runPitch, pitcher)
+  runPitch <- as.data.frame(summarise(runPitch,
+                                      runOne = sum(totalOne),
+                                      runTwo = sum(totalTwo),
+                                      runThree = sum(totalThr),
+                                      runFour = sum(totalFou),
+                                      runFive = sum(totalFiv),
+                                      runSeven = sum(totalSev)))
+  
+  ## Create totals by outcome type - batter
+  
+  runBat <- dcast(runBat, batter ~ outcome, value.var = 'outcome', fun.aggregate = length)
+  runBat[is.na(runBat)] <- 0
+  runBat$total <- runBat$`1` + runBat$`2` + runBat$`3` + runBat$`4` + runBat$`5` + runBat$`6` + runBat$`7`
+  colnames(runBat) <- c('batter','totalOne','totalTwo','totalThr','totalFou','totalFiv','totalSix','totalSev','total')
+  
+  runBat <- group_by(runBat, batter)
+  runBat <- as.data.frame(summarise(runBat,
+                                    runOne = sum(totalOne),
+                                    runTwo = sum(totalTwo),
+                                    runThree = sum(totalThr),
+                                    runFour = sum(totalFou),
+                                    runFive = sum(totalFiv),
+                                    runSeven = sum(totalSev)))
+  
+  
+  ## Calc runs scored by outcome type
+  
+  cc <- filter(cc, score == 'T')
+  bb <- b[,c('pitcher','batter','num','inning','event','gameday_link','outcome')]
+  cc <- cc[,c('id','num','inning','gameday_link','score','earned')]
+  
+  mer <- merge(bb,cc, by.x = c('batter','gameday_link','inning') , by.y = c('id','gameday_link','inning'))
+  mer <- filter(mer, num.x <= num.y)
+  mer <- mer[order(mer$gameday_link,mer$inning),]
+  mer$earned <- ifelse(mer$earned == 'T', 1, 0)
+  mer$earned[is.na(mer$earned)] <- 0
+  mer$score <- ifelse(mer$score == 'T', 1, 0)
+  
+  runsDF <- mer[,c('batter','pitcher','score','earned','outcome')]
+  
+  ## Read old data & save to CSV
+  
+  if(file.exists('runsTotal.csv')){
+    oldRuns <- read.csv('runsTotal.csv', stringsAsFactors = F)
+    runsDF <- as.data.frame(rbind(runsDF, oldRuns))
+  }
+  
+  write.csv(runsDF, 'runsTotal.csv', row.names = F)
+  
+  ## Create totals by outcome type - pitcher
+  
+  runsDFP <- dcast(runsDF, pitcher ~ outcome, value.var = 'outcome', fun.aggregate = length)
+  runsDFP[is.na(runsDFP)] <- 0
+  runsDFP$total <- runsDFP$`1` + runsDFP$`2` + runsDFP$`3` + runsDFP$`4` + runsDFP$`5` + runsDFP$`7`
+  
+  ## Group by - to account for stacking of data
+  
+  runsDFP <- group_by(runsDFP, pitcher)
+  runsDFP <- as.data.frame(summarise(runsDFP,
+                                     runOneB = sum(`1`),
+                                     runTwoB = sum(`2`),
+                                     runThreeB = sum(`3`),
+                                     runFourB = sum(`4`),
+                                     runFiveB = sum(`5`),
+                                     runSevenB = sum(`7`)))
+  
+  ## Create totals by outcome type - batter
+  
+  runsDFB <- dcast(runsDF, batter ~ outcome, value.var = 'outcome', fun.aggregate = length)
+  runsDFB[is.na(runsDFB)] <- 0
+  runsDFB$total <- runsDFB$`1` + runsDFB$`2` + runsDFB$`3` + runsDFB$`4` + runsDFB$`5`+ runsDFB$`7`
+  
+  runsDFB <- group_by(runsDFB, batter)
+  runsDFB <- as.data.frame(summarise(runsDFB,
+                                     runOneB = sum(`1`),
+                                     runTwoB = sum(`2`),
+                                     runThreeB = sum(`3`),
+                                     runFourB = sum(`4`),
+                                     runFiveB = sum(`5`),
+                                     runSevenB = sum(`7`)))
+  
+  ## Create percentages for batters
+  
+  runsBatter <- merge(runBat, runsDFB, by = 'batter', all.x = T)
+  runsBatter[is.na(runsBatter)] <- 0
+  runsBatter$runsOnePerc <- ifelse(runsBatter$runOne < 15, 0.20, runsBatter$runOneB / runsBatter$runOne)
+  runsBatter$runsTwoPerc <- ifelse(runsBatter$runTwo < 15, 0.40, runsBatter$runTwoB / runsBatter$runTwo)
+  runsBatter$runsThreePerc <- 0.75
+  runsBatter$runsFourPerc <- 1
+  runsBatter$runsFivePerc <- ifelse(runsBatter$runFive < 15, 0.20, runsBatter$runFiveB / runsBatter$runFive)
+  runsBatter$runsSevenPerc <- ifelse(runsBatter$runSeven < 15, 0.015, runsBatter$runSevenB / runsBatter$runSeven)
+  runsBatter <- runsBatter[,c('batter','runsOnePerc','runsTwoPerc','runsThreePerc','runsFourPerc','runsFivePerc','runsSevenPerc')]
+  
+  ## Create percentages for pitchers
+  
+  runsPitcher <- merge(runPitch, runsDFP, by = 'pitcher', all.x = T)
+  runsPitcher[is.na(runsPitcher)] <- 0
+  runsPitcher$runsOnePercP <- ifelse(runsPitcher$runOne < 15, 0.20, runsPitcher$runOneB / runsPitcher$runOne)
+  runsPitcher$runsTwoPercP <- ifelse(runsPitcher$runTwo < 15, 0.40, runsPitcher$runTwoB / runsPitcher$runTwo)
+  runsPitcher$runsThreePercP <- 0.75
+  runsPitcher$runsFourPercP <- 1
+  runsPitcher$runsFivePercP <- ifelse(runsPitcher$runFive < 15, 0.20, runsPitcher$runFiveB / runsPitcher$runFive)
+  runsPitcher$runsSevenPercP <- ifelse(runsPitcher$runSeven < 15, 0.015, runsPitcher$runSevenB / runsPitcher$runSeven)
+  runsPitcher <- runsPitcher[,c('pitcher','runsOnePercP','runsTwoPercP','runsThreePercP','runsFourPercP','runsFivePercP','runsSevenPercP')]
+  
+  ## Calc earned runs per pitcher
+  
+  er <- group_by(runsDF, pitcher)
+  er <- as.data.frame(summarise(er, 
+                                totalRuns = sum(score),
+                                earnedRuns = sum(earned)))
+  
+  er$erPerc <- er$earnedRuns / er$totalRuns
+  er <- er[,c('pitcher','totalRuns','erPerc')]
+  
+  ## Merge earned runs with pitchers
+  
+  runsPitcher <- merge(runsPitcher, er, by = 'pitcher', all.x = T)
+  runsPitcher[is.na(runsPitcher)] <- 0
+  
+  theList <- list()
+  theList[[1]] <- runsBatter
+  theList[[2]] <- runsPitcher
+  
+  return(theList)
+}
+
+runsData <- runs(dat)
+
+batRuns <- runsData[[1]]
+pitchRuns <- runsData[[2]]
+
 ## Calc number of pitches per pitcher & per team (from a batting perspective)
 
 pitchRxPitches <- function(directory, oldFile, newFile){
@@ -692,19 +861,18 @@ pitchCluster <- pitchDataManip(pitch)
 
 ## Can optionally look at scatter plot of pitch variables if interested
 
-scatPlot <- function(var1, var2) {
-  ggplot(pitchCluster, aes_string(x = var1, y = var2)) +
+scatPlotPreds <- function(dataframe, var1, var2) {
+  ggplot(dataframe, aes_string(x = var1, y = var2, label = paste0(player,"_",))) +
     geom_point() +
     geom_smooth()
 }
-scatPlot('FmphMean', 'SSPerc')
+scatPlot(pitchCluster,'locInitMean', 'heightInitMean')
 
 ## Runs clustering analysis of all pitchers - set up to have 4 clusters
 ## Note the number of 
 
 pitchClustering <- function(df) {
   scaledDF <- scale(df[,c(2:23,26:length(df))])
-  set.seed(500)
   km <- kmeans(scaledDF, 4, iter.max = 10)
   df$cluster <- km$cluster
   return(df)
@@ -723,7 +891,8 @@ bwPlot <- function(df, var2) {
   g$labels$fill <- 'Clusters'
   g
 }
-bwPlot(finalPitch, colnames(finalPitch)[9])
+bwPlot(finalPitch, colnames(finalPitch)[18])
+colnames(finalPitch)
 
 ## Creates modeling file - update with pitch type
 ## Not included in outcome variable: Batters - Runs
@@ -941,13 +1110,13 @@ modelFile <- function(predictData, clusterData, batterData, pitcherData, modelin
   ## Idea is people with few at bats are more likely to be worse than those who have more
 
   modelDF[is.na(modelDF)] <- 0
-  modelDF$`1` <- ifelse(modelDF$total < 5, .0755, modelDF$`1`)
-  modelDF$`2` <- ifelse(modelDF$total < 5, .0223, modelDF$`2`)
-  modelDF$`3` <- ifelse(modelDF$total < 5, .0025, modelDF$`3`)
-  modelDF$`4` <- ifelse(modelDF$total < 5, .0135, modelDF$`4`)
-  modelDF$`5` <- ifelse(modelDF$total < 5, .0432, modelDF$`5`)
-  modelDF$`6` <- ifelse(modelDF$total < 5, .3068, modelDF$`6`)
-  modelDF$`7` <- ifelse(modelDF$total < 5, .5361, modelDF$`7`)
+  modelDF$`1` <- ifelse(modelDF$total < 10, .0755, modelDF$`1`)
+  modelDF$`2` <- ifelse(modelDF$total < 10, .0223, modelDF$`2`)
+  modelDF$`3` <- ifelse(modelDF$total < 10, .0025, modelDF$`3`)
+  modelDF$`4` <- ifelse(modelDF$total < 10, .0135, modelDF$`4`)
+  modelDF$`5` <- ifelse(modelDF$total < 10, .0432, modelDF$`5`)
+  modelDF$`6` <- ifelse(modelDF$total < 10, .3068, modelDF$`6`)
+  modelDF$`7` <- ifelse(modelDF$total < 10, .5361, modelDF$`7`)
   head(modelDF)
   if(type == 'historic') {
     colnames(modelDF)[8:15] <- c('batOne', 'batTwo', 'batThree', 'batFour', 'batFive', 'batSix', 'batSeven', 'batTotal')
@@ -961,13 +1130,13 @@ modelFile <- function(predictData, clusterData, batterData, pitcherData, modelin
   ## Take care of pitchers with less than five batters faced
   
   modelDF[is.na(modelDF)] <- 0
-  modelDF$`1` <- ifelse(modelDF$total < 5, .2267, modelDF$`1`)
-  modelDF$`2` <- ifelse(modelDF$total < 5, .0670, modelDF$`2`)
-  modelDF$`3` <- ifelse(modelDF$total < 5, .0075, modelDF$`3`)
-  modelDF$`4` <- ifelse(modelDF$total < 5, .0405, modelDF$`4`)
-  modelDF$`5` <- ifelse(modelDF$total < 5, .1299, modelDF$`5`)
-  modelDF$`6` <- ifelse(modelDF$total < 5, .1023, modelDF$`6`)
-  modelDF$`7` <- ifelse(modelDF$total < 5, .4259, modelDF$`7`)
+  modelDF$`1` <- ifelse(modelDF$total < 10, .2267, modelDF$`1`)
+  modelDF$`2` <- ifelse(modelDF$total < 10, .0670, modelDF$`2`)
+  modelDF$`3` <- ifelse(modelDF$total < 10, .0075, modelDF$`3`)
+  modelDF$`4` <- ifelse(modelDF$total < 10, .0405, modelDF$`4`)
+  modelDF$`5` <- ifelse(modelDF$total < 10, .1299, modelDF$`5`)
+  modelDF$`6` <- ifelse(modelDF$total < 10, .1023, modelDF$`6`)
+  modelDF$`7` <- ifelse(modelDF$total < 10, .4259, modelDF$`7`)
   if(type == 'historic') {
     colnames(modelDF)[16:length(modelDF)] <- c('pitchOne', 'pitchTwo', 'pitchThree', 'pitchFour', 'pitchFive', 'pitchSix', 'pitchSeven', 'pitchTotal')
   } else {
@@ -1034,13 +1203,20 @@ boost2 <- xgboost(param = params,
 
 ## Optional Model Evaluation
 
-## model <- xgb.dump(boost, with.stats = T)
+#model <- xgb.dump(boost2, with.stats = T)
 
-## names <- dimnames(trainMatrix)[[2]]
+#names <- dimnames(trainMatrix)[[2]]
 
-## importance_matrix <- xgb.importance(names, model = boost)
+#importance_matrix <- xgb.importance(names, model = boost2)
 
-## xgb.plot.importance(importance_matrix)
+#xgb.plot.importance(importance_matrix)
+#importance <- xgb.importance(feature_names = names, model = boost2)
+
+#importance$Gain <- round(importance$Gain, 3)
+#importance$Cover <- round(importance$Cover, 3)
+#importance$Frequence <- round(importance$Frequence, 3)
+
+#importance
 
 ## Turn predictions into evaluation using test dataset
 
@@ -1253,7 +1429,7 @@ salaryData <- function(day, location) {
   write.csv(grindersDF, paste0(day,"_DailyFantasy.csv"), row.names = F)
   return(grindersDF)
 }
-newSalary <- salaryData('2016-06-01', '~/Documents/Northwestern/498/MLB Scraper')
+newSalary <- salaryData('2016-06-12', '~/Documents/Northwestern/498/MLB Scraper')
 
 ## Convert Rotogrinders pull into modeling format
 
@@ -1336,19 +1512,19 @@ totalRoto <- salaryModel(newSalary, finalPitch)
 newDayData <- modelFile(totalRoto, finalPitch, batMod, pitchMod, modelData, 'new')
 
 newDayData <- as.matrix(newDayData[,c(6:12,14:20)])
-
+head(newDayData)
 probNew <- as.data.frame(matrix(predict(boost2, newDayData), ncol = 7, byrow = T))
 
 ## Combine predictions with pitcher Info
 
 ## Take expected outcome from model & merge with salary & player info
 
-predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLookup, pitchLookup, sbB, sbP, rbiB, rbiP, date) {
+predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLookup, pitchLookup, sbB, sbP, rbiB, rbiP, runB, runP, date) {
 
   ## Calculate the number of at bats for each batter vs starters & bullpen
 
   probTotal <- as.data.frame(cbind(predictionFile[,1:8], probs))
-  
+
   ## Pull out just starter information
   
   probStarter <- filter(probTotal, type == 'SP')
@@ -1378,6 +1554,63 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
   probStarter$strikeoutAggProb <- probStarter$V6 * probStarter$starterMultiplier
   probStarter$otherAggProb <- probStarter$V7 * probStarter$starterMultiplier
 
+  ## Merge in Runs data - same fashion as SB/RBI
+  ## No arbitrary cut off necessary - handled in runs code (better method than RBIs)
+  ## Still need to handle missing cases (when batter/pitcher has never shown up before)
+  
+  probStarter <- merge(probStarter, runB, by = 'batter', all.x = T)
+  probStarter <- merge(probStarter, runP, by = 'pitcher', all.x = T)
+  probStarter[is.na(probStarter)] <- 0
+  
+  ## Calc expected runs per outcome based on batter & pitcher averages
+  
+  probStarter$run_1 <- ifelse(probStarter$runsFourPerc == 0 & probStarter$runsFourPercP == 0,
+                              .20,
+                       ifelse(probStarter$runsFourPercP == 0,
+                              probStarter$runsOnePerc,
+                       ifelse(probStarter$runsFourPerc == 0,
+                              probStarter$runsOnePercP,
+                       (probStarter$runsOnePerc + probStarter$runsOnePercP) / 2)))
+  
+  probStarter$run_2 <- ifelse(probStarter$runsFourPerc == 0 & probStarter$runsFourPercP == 0,
+                              .40,
+                       ifelse(probStarter$runsFourPercP == 0,
+                              probStarter$runsTwoPerc,
+                       ifelse(probStarter$runsFourPerc == 0,
+                              probStarter$runsTwoPercP,
+                       (probStarter$runsTwoPerc + probStarter$runsTwoPercP) / 2)))
+  
+  probStarter$run_3 <- 0.75
+  probStarter$run_4 <- 1
+  probStarter$run_5 <- ifelse(probStarter$runsFourPerc == 0 & probStarter$runsFourPercP == 0,
+                              .20,
+                       ifelse(probStarter$runsFourPercP == 0,
+                               probStarter$runsFivePerc,
+                       ifelse(probStarter$runsFourPerc == 0,
+                               probStarter$runsFivePercP,
+                       (probStarter$runsFivePerc + probStarter$runsFivePercP) / 2)))
+  probStarter$run_7 <- ifelse(probStarter$runsFourPerc == 0 & probStarter$runsFourPercP == 0,
+                              .015,
+                       ifelse(probStarter$runsFourPercP == 0,
+                              probStarter$runsSevenPerc,
+                       ifelse(probStarter$runsFourPerc == 0,
+                              probStarter$runsSevenPercP,
+                       (probStarter$runsSevenPerc + probStarter$runsSevenPercP) / 2)))
+  
+  ## Calc Total run probability
+  
+  probStarter$runTotal <- probStarter$run_1 * probStarter$singleAggProb +
+                          probStarter$run_2 * probStarter$doubleAggProb +
+                          probStarter$run_3 * probStarter$tripleAggProb +
+                          probStarter$run_4 * probStarter$hrAggProb +
+                          probStarter$run_5 * probStarter$walkAggProb +
+                          probStarter$run_7 * probStarter$otherAggProb
+  
+  ## Need to create earned runs for pitchers by multiplying runs for batters * percentage
+  
+  probStarter$erPerc <- ifelse(probStarter$totalRuns < 20, 0.95, probStarter$erPerc)
+  probStarter$erTotal <- probStarter$runTotal * probStarter$erPerc
+  
   ## Merge in RBI data - same fashion as SB 
   ## Pick cut off for replacement values (20 ABs .. pretty arbitrary but a good start)
   
@@ -1446,7 +1679,7 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
                          probStarter$rbi_7 * probStarter$otherAggProb
 
   ## Merge in SB / CS %%s - add in RBIs & Runs here in the futuer
-  
+
   probStarter <- merge(probStarter, sbB, by = 'batter', all.x = T)
   probStarter <- merge(probStarter, sbP, by = 'pitcher', all.x = T)
   probStarter$singleSB[is.na(probStarter$singleSB)] <- .03
@@ -1532,8 +1765,8 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
 
   ## Note not pulling pitcher info for now - can do that easily & should produce a separate expected outcome
   
-  probStarterHit <- probStarter[,c('batter','singleAggProb','doubleAggProb','tripleAggProb','hrAggProb','walkAggProb','strikeoutAggProb','otherAggProb', 'sbPerc', 'csPerc', 'rbiTotal')]
-  probStarterPitch <- probStarter[,c('pitcher','starterOuts','singleAggProb','doubleAggProb','tripleAggProb','hrAggProb','walkAggProb','strikeoutAggProb','otherAggProb', 'sbPerc', 'csPerc')]
+  probStarterHit <- probStarter[,c('batter','singleAggProb','doubleAggProb','tripleAggProb','hrAggProb','walkAggProb','strikeoutAggProb','otherAggProb', 'sbPerc', 'csPerc', 'rbiTotal', 'runTotal')]
+  probStarterPitch <- probStarter[,c('pitcher','starterOuts','singleAggProb','doubleAggProb','tripleAggProb','hrAggProb','walkAggProb','strikeoutAggProb','otherAggProb', 'sbPerc', 'csPerc', 'erTotal')]
   
   ## Calculate each batters expected outcome vs. the aggregate bullpen
 
@@ -1571,6 +1804,27 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
   probBullpenG$strikeoutAggProb <- probBullpenG$strikeoutOutcome * probBullpenG$bullpenMulitplier
   probBullpenG$otherAggProb <- probBullpenG$otherOutcome * probBullpenG$bullpenMulitplier
 
+  ## Merge with runs data
+  ## Note just using batter runs % - bullpen too variable for pitcher to matter
+  
+  probBullpenG <- merge(probBullpenG, runB, by = 'batter', all.x = T)
+  probBullpenG$run_1 <- ifelse(probBullpenG$runsFourPerc == 0, 0.20, probBullpenG$runsOnePerc)
+  probBullpenG$run_2 <- ifelse(probBullpenG$runsFourPerc == 0, 0.40, probBullpenG$runsTwoPerc)
+  probBullpenG$run_3 <- 0.75
+  probBullpenG$run_4 <- 1
+  probBullpenG$run_5 <- ifelse(probBullpenG$runsFourPerc == 0, 0.20, probBullpenG$runsFivePerc)
+  probBullpenG$run_7 <- ifelse(probBullpenG$runsFourPerc == 0, 0.015, probBullpenG$runsSevenPerc)
+    
+  ## Create run probabilities
+  ## Also need to create earned runs for pitchers by multiplying runs for batters * percentage
+  
+  probBullpenG$runTotal <- probBullpenG$run_1 * probBullpenG$singleAggProb +
+                           probBullpenG$run_2 * probBullpenG$doubleAggProb +
+                           probBullpenG$run_3 * probBullpenG$tripleAggProb +
+                           probBullpenG$run_4 * probBullpenG$hrAggProb +
+                           probBullpenG$run_5 * probBullpenG$walkAggProb +
+                           probBullpenG$run_7 * probBullpenG$otherAggProb
+  
   ## Merge with RBIs data
   ## Note just using batter RBIs % - bullpen too variable for pitcher to matter
   
@@ -1582,7 +1836,6 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
   probBullpenG$rbi_5 <- ifelse(probBullpenG$batTotal < 20, 0.01751584, probBullpenG$rbiB_5)
   probBullpenG$rbi_6 <- 0
   probBullpenG$rbi_7 <- ifelse(probBullpenG$batTotal < 20, 0.02535321, probBullpenG$rbiB_7)
-  probBullpenG$rbiTotal <- probBullpenG$rbi_1 * probBullpenG$singleOutcome
   
   ## Create RBI probabilities
   
@@ -1619,7 +1872,7 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
                          probBullpenG$otherCS * probBullpenG$otherAggProb
 
 
-  probBullpenG <- probBullpenG[,c('batter','singleAggProb','doubleAggProb','tripleAggProb','hrAggProb','walkAggProb','strikeoutAggProb','otherAggProb', 'sbPerc', 'csPerc', 'rbiTotal')]
+  probBullpenG <- probBullpenG[,c('batter','singleAggProb','doubleAggProb','tripleAggProb','hrAggProb','walkAggProb','strikeoutAggProb','otherAggProb', 'sbPerc', 'csPerc', 'rbiTotal','runTotal')]
 
   ## Stack batter outcomes vs starters & bullpen
 
@@ -1635,7 +1888,6 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
   totalBatterExclude <- unique(totalBatterEx$batter)
   
   totalBatterProb <- filter(totalBatterProb, !batter %in% totalBatterExclude)
-  
   totalBatterG <- group_by(totalBatterProb, batter)
   totalBatterG <- as.data.frame(summarise(totalBatterG,
                                           singleAggProb = sum(singleAggProb),
@@ -1646,7 +1898,8 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
                                           strikeoutAggProb = sum(strikeoutAggProb),
                                           otherAggProb = sum(otherAggProb),
                                           sbPerc = sum(sbPerc),
-                                          rbiTotal = sum(rbiTotal)))
+                                          rbiTotal = sum(rbiTotal),
+                                          runTotal = sum(runTotal)))
   
   ## Create expected totals by site
   
@@ -1656,7 +1909,8 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
                         totalBatterG$hrAggProb * 10 +
                         totalBatterG$walkAggProb * 2 +
                         totalBatterG$sbPerc * 5 +
-                        totalBatterG$rbiTotal * 2), 2)
+                        totalBatterG$rbiTotal * 2 +
+                        totalBatterG$runTotal * 2), 2)
   
   totalBatterG$fd <- round((totalBatterG$singleAggProb * 3 +
                         totalBatterG$doubleAggProb * 6 +
@@ -1664,7 +1918,8 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
                         totalBatterG$hrAggProb * 12 +
                         totalBatterG$walkAggProb * 3 +
                         totalBatterG$sbPerc * 6 +
-                        totalBatterG$rbiTotal * 3.5), 2)
+                        totalBatterG$rbiTotal * 3.5 +
+                        totalBatterG$runTotal * 3.2), 2)
   
   totalBatterG$yahoo <- round((totalBatterG$singleAggProb * 2 +
                            totalBatterG$doubleAggProb * 4 +
@@ -1672,7 +1927,8 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
                            totalBatterG$hrAggProb * 8 +
                            totalBatterG$walkAggProb * 2 +
                            totalBatterG$sbPerc * 4 +
-                           totalBatterG$rbiTotal * 2), 2)
+                           totalBatterG$rbiTotal * 2 +
+                           totalBatterG$runTotal * 2), 2)
   
   totalBatterG <- totalBatterG[,c('batter','dk','fd','yahoo')]
 
@@ -1687,17 +1943,21 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
                                  walkAggProb = sum(walkAggProb),
                                  strikeoutAggProb = sum(strikeoutAggProb),
                                  otherAggProb = sum(otherAggProb),
-                                 outs = (sum(starterOuts)/9)))
+                                 outs = (sum(starterOuts)/9),
+                                 runs = sum(erTotal)))
 
   totalPitcherG$dk <- ((totalPitcherG$outs / 3) * 2.25 +
                          totalPitcherG$strikeoutAggProb * 2 +
-                         (totalPitcherG$singleAggProb + totalPitcherG$doubleAggProb + totalPitcherG$tripleAggProb + totalPitcherG$hrAggProb + totalPitcherG$walkAggProb) * -0.6)
+                         (totalPitcherG$singleAggProb + totalPitcherG$doubleAggProb + totalPitcherG$tripleAggProb + totalPitcherG$hrAggProb + totalPitcherG$walkAggProb) * -0.6 +
+                         totalPitcherG$runs * -2)
   
   totalPitcherG$fd <- ((totalPitcherG$outs / 3) * 3 +
-                         totalPitcherG$strikeoutAggProb * 3)
+                        totalPitcherG$strikeoutAggProb * 3 +
+                        totalPitcherG$runs * -3)
   
   totalPitcherG$yahoo <- (totalPitcherG$outs * 0.6 +
-                            totalPitcherG$strikeoutAggProb * 2)
+                            totalPitcherG$strikeoutAggProb * 2 + 
+                            totalPitcherG$runs * -2)
   
   totalPitcherG <- totalPitcherG[,c('pitcher', 'dk', 'fd', 'yahoo')]
   
@@ -1749,11 +2009,25 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
 
   sal <- merge(sal, totalPlayerOutcome, by = 'player_code', all.x = T)
   colnames(sal)[3:5] <- c('dkSal', 'fdSal', 'yahooSal')
+  sal$dkPos <- ifelse(sal$dkPos %in% c('RP','pitcher','P'),'SP',sal$dkPos)
+  sal$fdPos <- ifelse(sal$fdPos %in% c('RP','pitcher','P'),'SP',sal$fdPos)
+  sal$yahooPos <- ifelse(sal$yahooPos %in% c('RP', 'pitcher','P'),'SP',sal$yahooPos)
   write.csv(sal, paste0('newPreds',date,'.csv'), row.names = F)
   return(sal)
 }
 
 ## Generate final predictions
 
-finalPreds <- predictionAggs(probNew, totalRoto, bullpenData, newSalary, batterLookup, pitcherLookup, batSteals, pitchSteals,batRBIs, pitchRBIs, '2016-05-22')
+finalPreds <- predictionAggs(probNew, totalRoto, bullpenData, newSalary, batterLookup, pitcherLookup, batSteals, pitchSteals,batRBIs, pitchRBIs,batRuns, pitchRuns, '2016-06-12')
+
+scatPlotPreds <- function(dataframe, var1, var2, site, position) {
+  bb <- dataframe[grep(position,dataframe[,site]),]
+  ggplot(bb, aes_string(x = var1, y = var2, label = 'player')) +
+    geom_point() +
+    geom_text(aes(label = player)) +
+    geom_smooth()
+}
+
+scatPlotPreds(finalPreds, 'fdSal', 'fdExp','fdPos', 'SP')
+
 
