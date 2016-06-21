@@ -19,13 +19,13 @@ library(DescTools)
 ## Run below code to get up to date through 5/31
 
 setwd('~/Desktop/Data Upload')
-date <- '2016-06-13'
+date <- '2016-06-21'
 
 pitchRxScraper <- function(startDate, endDate) {
   dat <- scrape(start = startDate, end = endDate)
   return(dat)
 }
-dat <- pitchRxScraper('2016-06-10', '2016-06-12')
+dat <- pitchRxScraper('2016-06-20', '2016-06-20')
 
 ## Create pitcher & at-bat files - these will be saved to your working directory
 
@@ -117,8 +117,8 @@ pitchRxAtBat <- function(existing, newFile, directory, daterange) {
   return(data)
 }
 
-pitch <- pitchRxPitch('pitch.csv', dat, '~/Desktop/Data Upload', '2016_06_10-2016_06_12')
-atbat <- pitchRxAtBat('atbat.csv', dat, '~/Desktop/Data Upload', '2016_06_10-2016_06_12')
+pitch <- pitchRxPitch('pitch.csv', dat, '~/Desktop/Data Upload', '2016_06_14-2016_06_19')
+atbat <- pitchRxAtBat('atbat.csv', dat, '~/Desktop/Data Upload', '2016_06_14-2016_06_19')
 
 steals <- function(data) {
   dataset <- data[['atbat']]
@@ -1283,7 +1283,7 @@ salaryData <- function(day, location) {
     
     ## Pull relevant information from grinders website
     
-    grinders <- urlList[[1]] %>%
+    grinders <- urlList[[c]] %>%
       html_nodes('.players .player-popup , .mascot, .meta, .status .stats, .stats .salary, .position, .pname .player-popup') %>%
       html_text(trim =T)
     ## Make missing entries 0 - note this is for players who are playing but do NOT have a salary
@@ -1428,7 +1428,7 @@ salaryData <- function(day, location) {
   write.csv(grindersDF, paste0(day,"_DailyFantasy.csv"), row.names = F)
   return(grindersDF)
 }
-newSalary <- salaryData('2016-06-13', '~/Desktop/Data Upload/Scraper')
+newSalary <- salaryData('2016-06-21', '~/Desktop/Data Upload/Scraper')
 
 setwd('~/Desktop/Data Upload')
 
@@ -1532,7 +1532,7 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
   probTotal <- as.data.frame(cbind(predictionFile[,1:8], probs))
   
   ## Pull out just starter information
-  
+
   probStarter <- filter(probTotal, type == 'SP')
   probStarter <- merge(probStarter, pitcherPitches, by = 'pitcher', all.x = T)
   probStarter <- merge(probStarter, batterPitches, by.x ='batTeam', by.y = 'team')
@@ -1981,17 +1981,23 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
   colnames(totalPlayerOutcome) <- c('player_code', 'dkExp', 'fdExp', 'yahooExp')
   
   ## Create DF with salary info, positions & lineup spot for each player
-  
-  salaryInfo <- salaryInfo[,c(3:4,6,7,9)]
-  sal <- dcast(salaryInfo, player ~ site, value.var = c('salary'))
-  pos <- dcast(salaryInfo, player ~ site, value.var = c('position'))
+
+  salaryInfo$conc <- paste0(salaryInfo$player,"_", salaryInfo$team)
+  salaryInfo2 <- salaryInfo[,c(10,4,6,7,9)]
+  sal <- dcast(salaryInfo2, conc ~ site, value.var = 'salary')
+  sal <- as.data.frame(cSplit(sal, 'conc', sep = '_'))
+  sal <- sal[,c(4,1:3)]
+  colnames(sal)[1] <- 'player'
+  pos <- dcast(salaryInfo, conc ~ site, value.var = 'position')
+  pos <- as.data.frame(cSplit(pos, 'conc', sep = '_'))
+  pos <- pos[,c(4,1:3)]
   colnames(pos) <- c('player', 'dkPos', 'fdPos', 'yahooPos')
   salaryInfo$dups <- duplicated(salaryInfo$player)
   salaryInfo <- filter(salaryInfo, dups == F)
   salaryInfo$dups <- NULL
   sal <- merge(sal, pos, by = 'player')
   sal <- merge(sal, salaryInfo[,c('player','lineupSpot')], by = 'player')
-  
+
   ## Create one total player lookup file
 
   pL <- pitchLookup[,c('pitcher', 'pitcher_name','team','date')]
@@ -2027,7 +2033,7 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
 
 ## Generate final predictions
 
-finalPreds <- predictionAggs(probNew, totalRoto, bullpenData, newSalary, batterLookup, pitcherLookup, batSteals, pitchSteals,batRBIs, pitchRBIs,batRuns, pitchRuns, '2016-06-13')
+finalPreds <- predictionAggs(probNew, totalRoto, bullpenData, newSalary, batterLookup, pitcherLookup, batSteals, pitchSteals,batRBIs, pitchRBIs,batRuns, pitchRuns, '2016-06-20')
 
 scatPlotPreds <- function(dataframe, var1, var2, site, position) {
   bb <- dataframe[grep(position,dataframe[,site]),]
@@ -2037,4 +2043,5 @@ scatPlotPreds <- function(dataframe, var1, var2, site, position) {
     geom_smooth()
 }
 
-scatPlotPreds(finalPreds, 'fdSal', 'fdExp','fdPos', 'OF')
+scatPlotPreds(finalPreds, 'fdSal', 'fdExp','fdPos', '2B')
+
