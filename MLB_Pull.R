@@ -5,6 +5,7 @@ library(data.table)
 library(splitstackshape)
 library(reshape2)
 library(DescTools)
+library(stringr)
 
 ################################ MLB Data Pull - Using Pitch fX dataset #################################
 
@@ -18,14 +19,14 @@ library(DescTools)
 ## Currently updated through 5/20/2016 - contains all of 2015 season + all data through 5/20/2016 for 2016 season
 ## Run below code to get up to date through 5/31
 
-setwd('~/Desktop/Data Upload')
-date <- '2016-06-21'
+directory <- '~/Documents/Northwestern/498/MLB_Scraper/pitchRx Data/new'
+date <- '2016-06-25'
 
 pitchRxScraper <- function(startDate, endDate) {
   dat <- scrape(start = startDate, end = endDate)
   return(dat)
 }
-dat <- pitchRxScraper('2016-06-20', '2016-06-20')
+dat <- pitchRxScraper('2016-06-11', '2016-06-24')
 
 ## Create pitcher & at-bat files - these will be saved to your working directory
 
@@ -117,8 +118,8 @@ pitchRxAtBat <- function(existing, newFile, directory, daterange) {
   return(data)
 }
 
-pitch <- pitchRxPitch('pitch.csv', dat, '~/Desktop/Data Upload', '2016_06_14-2016_06_19')
-atbat <- pitchRxAtBat('atbat.csv', dat, '~/Desktop/Data Upload', '2016_06_14-2016_06_19')
+pitch <- pitchRxPitch('pitch.csv', dat, directory, '2016_06_11-2016_06_24')
+atbat <- pitchRxAtBat('atbat.csv', dat, directory, '2016_06_11-2016_06_24')
 
 steals <- function(data) {
   dataset <- data[['atbat']]
@@ -726,8 +727,8 @@ pitchRxBatPitches <- function(directory, oldFile, newFile){
   return(team.games)
 }
 
-pitcherPitches <- pitchRxPitches('~/Desktop/Data Upload', 'numPitches.csv', dat)
-batterPitches <- pitchRxBatPitches('~/Desktop/Data Upload', 'teamPitches.csv', dat)
+pitcherPitches <- pitchRxPitches(directory, 'numPitches.csv', dat)
+batterPitches <- pitchRxBatPitches(directory, 'teamPitches.csv', dat)
 
 ## Run to match player names with their codes - not necessary for modeling, used for matching player names with RotoGrinders
 ## Will also have to create a manual match list between RotoGrinders names & these name
@@ -742,24 +743,26 @@ playerMatch <- function(newDF, var1, var2, directory) {
   g$dups <- duplicated(g[,1])
   g <- filter(g, dups == F)
   g$dups <- NULL
+  g$road <- as.character(g$road)
+  g$home <- as.character(g$home)
   g$team <- ifelse(g$inning_side == 'top' & var1 == 'batter', g$road,
                    ifelse(g$inning_side == 'bottom' & var1 == 'pitcher', g$road, g$home))
   g$road <- NULL
   g$home <- NULL
   g$inning_side <- NULL
   g[,2] <- ifelse(g[,1] == 666560, 'Byung-ho Park',
-                  ifelse(g[,1] == 624424, 'Michael Conforto',
-                         ifelse(g[,1] == 628329, 'Rusney Castillo',
-                                ifelse(g[,1] == 607074, 'Carlos Rodon',
-                                       ifelse(g[,2] == 'Carlos Matias', 'Carlos Martinez',
-                                              ifelse(g[,2] == 'C.C. Sabathia', 'CC Sabathia',
-                                                     ifelse(g[,2] == 'Christopher Archer', 'Chris Archer',
-                                                            ifelse(g[,2] == 'Dae Ho Lee', 'Dae-Ho Lee',
-                                                                   ifelse(g[,2] == 'Daniel Santana', 'Danny Santana',
-                                                                          ifelse(g[,2] == 'Daniel Valencia', 'Danny Valencia',
-                                                                                 ifelse(g[,2] == 'Senger Peralta', 'David Peralta',
-                                                                                        ifelse(g[,2] == 'Douglas Fister', 'Doug Fister',
-                                                                                               ifelse(g[,2] == 'Devaris Gordon', 'Dee Gordon',
+           ifelse(g[,1] == 624424, 'Michael Conforto',
+           ifelse(g[,1] == 628329, 'Rusney Castillo',
+           ifelse(g[,1] == 607074, 'Carlos Rodon',
+           ifelse(g[,2] == 'Carlos Matias', 'Carlos Martinez',
+           ifelse(g[,2] == 'C.C. Sabathia', 'CC Sabathia',
+           ifelse(g[,2] == 'Christopher Archer', 'Chris Archer',
+           ifelse(g[,2] == 'Dae Ho Lee', 'Dae-Ho Lee',
+           ifelse(g[,2] == 'Daniel Santana', 'Danny Santana',
+           ifelse(g[,2] == 'Daniel Valencia', 'Danny Valencia',
+           ifelse(g[,2] == 'Senger Peralta', 'David Peralta',
+           ifelse(g[,2] == 'Douglas Fister', 'Doug Fister',
+           ifelse(g[,2] == 'Devaris Gordon', 'Dee Gordon',
                                                                                                       ifelse(g[,2] == 'Delino DeShieldsJr.', 'Delino DeShields',
                                                                                                              ifelse(g[,2] == 'Frederick Freeman', 'Freddie Freeman',
                                                                                                                     ifelse(g[,2] == 'Howard Kendrick', 'Howie Kendrick',
@@ -790,14 +793,15 @@ playerMatch <- function(newDF, var1, var2, directory) {
                                                                                                                                                                                                                                                                                                    ifelse(g[,2] == 'Timothy Beckham', 'Tim Beckham',
                                                                                                                                                                                                                                                                                                           ifelse(g[,2] == 'Wellington Castillo', 'Welington Castillo',
                                                                                                                                                                                                                                                                                                                  ifelse(g[,2] == 'Zachary Davies', 'Zach Davies',
-                                                                                                                                                                                                                                                                                                                        ifelse(g[,2] == 'Zachary Cozart', 'Zack Cozart', as.character(g[,2])))))))))))))))))))))))))))))))))))))))))))))
+                                                                                                                                                                                                                                                                                                                        ifelse(g[,2] == 'Zachary Cozart', 'Zack Cozart',
+                                                                                                                                                                                                                                            ifelse(g[,2] == 'Matthew Andriese', 'Matt Andriese', as.character(g[,2]))))))))))))))))))))))))))))))))))))))))))))))
   setwd(directory)
   write.csv(g, paste0(var2,'.csv'), row.names = F)
   return(g)
 }
 
-batterLookup <- playerMatch(atbat, 'batter', 'batter_name', '~/Desktop/Data Upload')
-pitcherLookup <- playerMatch(atbat, 'pitcher', 'pitcher_name', '~/Desktop/Data Upload')
+batterLookup <- playerMatch(atbat, 'batter', 'batter_name', directory)
+pitcherLookup <- playerMatch(atbat, 'pitcher', 'pitcher_name', directory)
 
 ## Converts data into the proper format
 
@@ -1095,7 +1099,7 @@ modelFile <- function(predictData, clusterData, batterData, pitcherData, modelin
   if(type == 'historic'){
     modelDF <- modelDF[,c('batter', 'pitcher', 'p_throws', 'cluster', 'stand', 'home', 'outcome')]
   } else {
-    modelDF <- modelDF[,c('batter', 'pitcher', 'p_throws', 'cluster', 'stand')]
+    modelDF <- modelDF[,c('batter', 'pitcher', 'p_throws', 'cluster', 'stand', 'home')]
   }
   modelDF$p_throws <- as.character(modelDF$p_throws)
   modelDF$stand <- as.character(modelDF$stand)
@@ -1120,7 +1124,7 @@ modelFile <- function(predictData, clusterData, batterData, pitcherData, modelin
   if(type == 'historic') {
     colnames(modelDF)[8:15] <- c('batOne', 'batTwo', 'batThree', 'batFour', 'batFive', 'batSix', 'batSeven', 'batTotal')
   } else {
-    colnames(modelDF)[6:13] <- c('batOne', 'batTwo', 'batThree', 'batFour', 'batFive', 'batSix', 'batSeven', 'batTotal')
+    colnames(modelDF)[7:14] <- c('batOne', 'batTwo', 'batThree', 'batFour', 'batFive', 'batSix', 'batSeven', 'batTotal')
   }
   ## Merge in Pitcher Data
   
@@ -1139,7 +1143,7 @@ modelFile <- function(predictData, clusterData, batterData, pitcherData, modelin
   if(type == 'historic') {
     colnames(modelDF)[16:length(modelDF)] <- c('pitchOne', 'pitchTwo', 'pitchThree', 'pitchFour', 'pitchFive', 'pitchSix', 'pitchSeven', 'pitchTotal')
   } else {
-    colnames(modelDF)[14:length(modelDF)] <- c('pitchOne', 'pitchTwo', 'pitchThree', 'pitchFour', 'pitchFive', 'pitchSix', 'pitchSeven', 'pitchTotal')
+    colnames(modelDF)[15:length(modelDF)] <- c('pitchOne', 'pitchTwo', 'pitchThree', 'pitchFour', 'pitchFive', 'pitchSix', 'pitchSeven', 'pitchTotal')
   }
   if(type == 'historic') {
     write.csv(modelDF, 'modelFile.csv', row.names = F)  
@@ -1161,6 +1165,17 @@ library(Ckmeans.1d.dp)
 
 rand <- runif(nrow(newData), min = 0, max = 1)
 newData$rand <- rand
+newData$un <- seq(1,nrow(newData))
+
+## Explode out home team variable into binary variables
+
+caster <- dcast(newData, un ~ home, fun.aggregate = length, value.var = 'un')
+caster[is.na(caster)] <- 0
+caster <- caster[order(caster$un),]
+caster$un <- NULL
+newData <- as.data.frame(cbind(newData, caster))
+newData <- filter(newData, nas == 0)
+newData$nas <- NULL
 
 train <- filter(newData, rand > .25)
 test <- filter(newData, rand <= .25)
@@ -1168,8 +1183,8 @@ test <- filter(newData, rand <= .25)
 y <- train$outcome - 1
 x <- test$outcome
 
-train <- train[,c(8:14,16:22)]
-test <- test[,c(8:14,16:22)]
+train <- train[,c(8:14,16:22,26:55)]
+test <- test[,c(8:14,16:22,26:55)]
 
 trainMatrix <- as.matrix(train)
 testMatrix <- as.matrix(test)
@@ -1204,18 +1219,18 @@ boost2 <- xgboost(param = params,
 
 #model <- xgb.dump(boost2, with.stats = T)
 
-#names <- dimnames(trainMatrix)[[2]]
+names <- dimnames(trainMatrix)[[2]]
 
 #importance_matrix <- xgb.importance(names, model = boost2)
 
 #xgb.plot.importance(importance_matrix)
-#importance <- xgb.importance(feature_names = names, model = boost2)
+importance <- xgb.importance(feature_names = names, model = boost2)
 
-#importance$Gain <- round(importance$Gain, 3)
-#importance$Cover <- round(importance$Cover, 3)
-#importance$Frequence <- round(importance$Frequence, 3)
+importance$Gain <- round(importance$Gain, 3)
+importance$Cover <- round(importance$Cover, 3)
+importance$Frequence <- round(importance$Frequence, 3)
 
-#importance
+importance
 
 ## Turn predictions into evaluation using test dataset
 
@@ -1250,7 +1265,8 @@ err
 ## ex - salaryData('2016-04-05', '~/Documents/Northwestern/498/MLB Scraped')
 
 ## Pull rotogrinders data from given day
-
+date <- '2016-06-26'
+day <- date
 salaryData <- function(day, location) {
   
   ## Load required packages
@@ -1272,9 +1288,9 @@ salaryData <- function(day, location) {
     siteURL <- read_html(paste0('https://rotogrinders.com/lineups/mlb?date=',day,'&site=',s))
     urlList[[a]] <- siteURL
   }
-  
+  print('sites for loop')
   ## Create empty list for storing salaries
-  
+
   salaryList <- list()
   
   ## Loop through each site & pull salaries for each available player
@@ -1284,7 +1300,7 @@ salaryData <- function(day, location) {
     ## Pull relevant information from grinders website
     
     grinders <- urlList[[c]] %>%
-      html_nodes('.players .player-popup , .mascot, .meta, .status .stats, .stats .salary, .position, .pname .player-popup') %>%
+      html_nodes('.players .player-popup, time, .mascot, .meta, .status .stats, .stats .salary, .position, .pname .player-popup') %>%
       html_text(trim =T)
     ## Make missing entries 0 - note this is for players who are playing but do NOT have a salary
     ## This is important to note because players with salary 0 should be ignored
@@ -1297,16 +1313,27 @@ salaryData <- function(day, location) {
     grinders <- gsub('\\n', '', grinders)
     grinders <- gsub("                            ", "_", grinders)
     grinders <- gsub("                        ", "_", grinders)
+    
 
+    ## Remove timestamp from beginning of pull
+    
+    gc <- str_sub(grinders[1:30], start = -5)
+    gc <- ifelse(gc == 'PM ET', gc, 'drop')
+    gc <- gc[gc != 'drop']
+    gc[length(gc)] <- grinders[length(gc)]
+    gc <- ifelse(gc == 'PM ET', 'drop', gc)
+    grinders[1:length(gc)] <- gc
+    grinders <- grinders[grinders != 'drop']
+    print('post rvest & removal of leading timestamps')
     ## Put player data into a data frame organized by game
-    if(length(grinders) %% 78 != 0) {
+    if(length(grinders) %% 79 != 0) {
       message('Some Unknown Person or People is/are playing in one/some of the games')
       missingCheck <- function() {
         len <- length(grinders)
         probs <- c(rep(T, len))
-        b <- 78 - length(grinders) %% 78
+        b <- 79 - length(grinders) %% 79
         checker <- '_'
-        for (i in c(42,82,120,160,198,238,276,316,354,394,432,472,510,550,588,628,666,706,744,784,822,862,900,940,978,1018,1056,1096,1134)) {
+        for (i in c(43,84,122,163,201,242,280,321,359,400,438,479,517,558,596,637,675,716,754,795,833,874,912,953,991,1032,1070,1111,1149,1190,1228,1269,1301)) {
           check1 <- ifelse(substr(grinders[i],2,2) %in% checker, 'none', length(grinders[1:i]))
           if (check1 != 'none') break
           if (i > length(grinders)) break
@@ -1327,12 +1354,13 @@ salaryData <- function(day, location) {
       }
       grinders <- missingCheck()
     }
-    
+   print(paste0('post error checking pre creation of data frame',c))
     grinders <- as.data.frame(matrix(grinders, 
-                                     nrow = (length(grinders)/78), 
+                                     nrow = (length(grinders)/79), 
                                      byrow=T), 
                               stringsAsFactors = F)
     
+  
     ## Create a list of NL teams - used for removing pitchers being double counted in games played in NL Parks    
     
     nlList <- c('Marlins', 'Mets', 'Nationals', 'Phillies', 'Braves',
@@ -1342,60 +1370,63 @@ salaryData <- function(day, location) {
     ## Create an empty list for formatting players within the same DF
     
     playerStack <- list()
-    
+   
     ## Function that stacks players by lineup spot within each game
     ## Necessary based on formatting of original data pull
     
     stacker <- function(df) {
       l <- 0
-      for (i in seq(5, 37, 4)) {
+      for (i in seq(6, 38, 4)) {
         l <- l + 1
         n <- i + 1
         j <- i + 2
         q <- i + 3
-        d <- df[,c(1,2,i,n,j,q)]
+        d <- df[,c(1,2,3,i,n,j,q)]
         d$lineupSpot <- l
-        d$side <- 'either'
-        colnames(d) <- c('team', 'opponent', 'player', 'position', 'stand','salary','lineupSpot','side')
+        d$side <- 'road'
+        d$home <- df[,3]
+        colnames(d) <- c('gametime', 'team', 'opponent', 'player', 'position', 'stand','salary','lineupSpot','side','home')
         playerStack[[l]] <- d
       }
       s <- 0
-      for (i in seq(43, 75, 4)) {
+      for (i in seq(44, 76, 4)) {
         s <- s + 1
         l <- l + 1
         n <- i + 1
         j <- i + 2
         q <- i + 3
-        d <- df[,c(2,1,i,n,j,q)]
+        d <- df[,c(1,3,2,i,n,j,q)]
         d$lineupSpot <- s
-        d$side <- 'either'
-        colnames(d) <- c('team', 'opponent', 'player', 'position', 'stand','salary','lineupSpot','side')
+        d$side <- 'home'
+        d$home <- df[,3]
+        colnames(d) <- c('gametime','team', 'opponent', 'player', 'position', 'stand','salary','lineupSpot','side','home')
         playerStack[[l]] <- d
       }
-      
+      print(paste0('post player stack for batters ',c))
       ## Note - pitchers handled separately here because of additional extraneous data that must be removed
       
       l <- l + 1
-      roadPitch <- grinders[,c(1:4)]
+      roadPitch <- grinders[,c(1:5)]
       roadPitch$side <- 'road'
-      homePitch <- grinders[,c(2,1,41,42)]
+      roadPitch$home <- grinders[,3]
+      homePitch <- grinders[,c(1,3,2,42,43)]
       homePitch$side <- 'home'
-      colnames(roadPitch) <- c('team','opponent','player','attributes','side')
-      colnames(homePitch) <- c('team','opponent','player','attributes','side')
+      homePitch$home <- grinders[,3]
+      colnames(roadPitch) <- c('gametime','team','opponent','player','attributes','side','home')
+      colnames(homePitch) <- c('gametime','team','opponent','player','attributes','side','home')
       roadPitch <- roadPitch[!roadPitch$opponent %in% nlList,]
       homePitch <- homePitch[!homePitch$team %in% nlList,]
       totalPitch <- as.data.frame(rbind(roadPitch, homePitch), stringsAsFactors = F)
       totalPitch <- as.data.frame(cSplit(totalPitch, 
                                          'attributes', 
                                          sep='_'), stringsAsFactors = F)
-      totalPitch <- totalPitch[,c(1:4,6,5)]
+      totalPitch <- totalPitch[,c(1:6,8,7)]
       totalPitch$position <- 'pitcher'
       totalPitch$lineupSpot <- 9
-      totalPitch <- totalPitch[,c(1:3,7,6,5,8,4)]
-      colnames(totalPitch) <- c('team', 'opponent', 'player', 'position', 'stand', 'salary', 'lineupSpot', 'side')
-      totalPitch[,c(1:3)] <- sapply(totalPitch[,c(1:3)], as.character)
-      colnames(totalPitch)
-      colnames(d)
+      totalPitch <- totalPitch[,c(1:4,9,8,7,10,5,6)]
+      colnames(totalPitch) <- c('gametime','team', 'opponent', 'player', 'position', 'stand', 'salary', 'lineupSpot', 'side','home')
+      totalPitch[,c(1:3)] <- sapply(totalPitch[,c(1:4)], as.character)
+      print('post pitch stack')
       ## Stack pitchers onto existing postional players file, then convert to data frame
       
       playerStack[[l]] <- totalPitch
@@ -1407,35 +1438,37 @@ salaryData <- function(day, location) {
       playerDF <- playerDF[order(playerDF$team,
                                  playerDF$opponent,
                                  playerDF$lineupSpot),]
-      
+      print('post pitcher & batter stack')
       ## Change column name to salary, and add in variable that indicates the site the salaries come from
       
       playerDF$site <- sites[c]
       return(playerDF)
     }
-    
+    print('post playerDF')
     ## Run this function for each site, then stack on top of each other
     
     grindersList <- stacker(grinders)
     salaryList[[c]] <- grindersList
   }
-  
+  print('post grindersList')
   ## Final output is a dataframe that has the salaries for each site stacked on top of one and other
   
   grindersDF <- do.call(rbind.data.frame, salaryList) 
   grindersDF$salary[is.na(grindersDF$salary)] <- 0
+  print('post grindersDF')
   setwd(location)
   write.csv(grindersDF, paste0(day,"_DailyFantasy.csv"), row.names = F)
   return(grindersDF)
 }
-newSalary <- salaryData('2016-06-21', '~/Desktop/Data Upload/Scraper')
+newSalary <- salaryData(date, directory)
 
-setwd('~/Desktop/Data Upload')
+## For Doubleheaders
+
+#newSalary$combo <- paste0(newSalary$gametime,newSalary$home)
+#newSalary <- filter(newSalary, combo != '1:05 PM ETOrioles')
+#newSalary$combo <- NULL
 
 ## Convert Rotogrinders pull into modeling format
-
-newSalaryData <- newSalary
-clusterData <- pitchCluster
 
 salaryModel <- function(newSalaryData, clusterData) {
   
@@ -1453,9 +1486,11 @@ salaryModel <- function(newSalaryData, clusterData) {
   teamLookup <- as.data.frame(cbind(teamLookup, teamAbbrev))
   newSalaryData <- merge(newSalaryData, teamLookup, by.x = 'team', by.y = 'teamLookup')
   newSalaryData <- merge(newSalaryData, teamLookup, by.x = 'opponent', by.y = 'teamLookup')
-  colnames(newSalaryData)[10] <- 'team2'
-  colnames(newSalaryData)[11] <- 'opponent2'
-  
+  newSalaryData <- merge(newSalaryData, teamLookup, by.x = 'home', by.y = 'teamLookup')
+  colnames(newSalaryData)[12] <- 'team2'
+  colnames(newSalaryData)[13] <- 'opponent2'
+  colnames(newSalaryData)[14] <- 'home2'
+
   ## Match Pitcher Name from Rotogrinders to name in PitchRx to get pitcher Code
   
   pitchersRoto <- filter(newSalaryData, position %in% c('SP','P','pitcher'))
@@ -1463,43 +1498,45 @@ salaryModel <- function(newSalaryData, clusterData) {
   pitchersRoto <- filter(pitchersRoto, dups == F)
   pitchersRoto$dups <- NULL
   pitchersRoto <- merge(pitchersRoto, pitcherLookup, by.x = 'player', by.y = 'pitcher_name', all.x = T)
-  pitchersRoto <- pitchersRoto[,c('pitcher', 'stand','team2', 'opponent2')]
-  colnames(pitchersRoto) <- c('pitcher', 'p_throws', 'pitchTeam', 'pitchOpponent')
-  
+  pitchersRoto <- pitchersRoto[,c('gametime','pitcher', 'stand','team2', 'opponent2')]
+  colnames(pitchersRoto) <- c('gametime','pitcher', 'p_throws', 'pitchTeam', 'pitchOpponent')
+
   ## Match Pitcher Name from Rotogrinders to name in PitchRx to get batter Code
-  
+
   battersRoto <- newSalaryData
   battersRoto$exclude <- ifelse(battersRoto$position == 'pitcher' & battersRoto$side == 'home' & !battersRoto$team %in% nlList, 1,
                                 ifelse(battersRoto$position == 'pitcher' & battersRoto$side == 'road' & !battersRoto$opponent %in% nlList, 1, 0))
   battersRoto <- filter(battersRoto, exclude == 0)
-  battersRoto$dups <- duplicated(battersRoto$player)
+  battersRoto$dups <- duplicated(paste0(battersRoto$player,battersRoto$gametime))
   battersRoto <- filter(battersRoto, dups == F)
   battersRoto$dups <- NULL
   battersRoto <- battersRoto[order(battersRoto$team, battersRoto$lineupSpot),]
   battersRoto <- merge(battersRoto, batterLookup, by.x = 'player', by.y = 'batter_name', all.x = T)
-  battersRoto <- battersRoto[,c('batter', 'stand', 'team2', 'lineupSpot', 'opponent2')]
-  colnames(battersRoto)[3] <- 'batTeam'
-  colnames(battersRoto)[5] <- 'batOpponent'
-  
+  battersRoto <- battersRoto[,c('gametime', 'batter', 'stand', 'team2', 'lineupSpot', 'opponent2','home2')]
+  colnames(battersRoto)[4] <- 'batTeam'
+  colnames(battersRoto)[6] <- 'batOpponent'
+  colnames(battersRoto)[7] <- 'home'
+
   ## Merge data together to get pitcher-batter matchups for each game
   ## First the starting pitchers
-  
-  spMatchups <- merge(pitchersRoto, battersRoto, by.x = 'pitchOpponent', by.y = 'batTeam', all.x = T)
+
+  spMatchups <- merge(pitchersRoto, battersRoto, by.x = c('gametime','pitchOpponent'), by.y = c('gametime','batTeam'), all.x = T)
   spMatchups$type <- 'SP'
-  spMatchups <- spMatchups[,c('pitcher', 'pitchTeam', 'p_throws', 'type', 'batter', 'pitchOpponent', 'stand', 'lineupSpot')]
-  colnames(spMatchups)[6] <- 'batTeam'
+  spMatchups <- spMatchups[,c('gametime','pitcher', 'pitchTeam', 'p_throws', 'type', 'batter', 'pitchOpponent', 'stand', 'lineupSpot','home')]
+  colnames(spMatchups)[7] <- 'batTeam'
 
     ## Create bullpen database
-
+head(pitcherLookup)
   pitchingTotal <- merge(pitcherLookup, pitcherPitches, on = 'pitcher', all.x = T)
   pitchingTotal$type <- ifelse(pitchingTotal$mean.entry.outs > 9, 'RP', 'SP')
   
   ## Now create all bullpen possible matchups
-  
-  bullpen <- filter(pitchingTotal, type == 'RP')
+head(bullpen)  
+head(battersRoto)  
+bullpen <- filter(pitchingTotal, type == 'RP')
   bullMatchups <- merge(battersRoto, bullpen[,c(1,4,5,9)], by.x = 'batOpponent', by.y = 'team')
-  bullMatchups <- bullMatchups[,c('pitcher', 'batOpponent', 'p_throws', 'type', 'batter', 'batTeam', 'stand', 'lineupSpot')]
-  colnames(bullMatchups)[2] <- 'pitchTeam'
+  bullMatchups <- bullMatchups[,c('gametime','pitcher', 'batOpponent', 'p_throws', 'type', 'batter', 'batTeam', 'stand', 'lineupSpot','home')]
+  colnames(bullMatchups)[3] <- 'pitchTeam'
   
   ## Also merge in clustering data to get pitcher's cluster 
   
@@ -1516,8 +1553,15 @@ totalRoto <- salaryModel(newSalary, finalPitch)
 ## Create predictions on new data
 
 newDayData <- modelFile(totalRoto, finalPitch, batMod, pitchMod, modelData, 'new')
+newDayData$un <- seq(1,nrow(newDayData))
+caster2 <- dcast(newDayData, un ~ home, fun.aggregate = length, value.var = 'un')
+caster2[is.na(caster2)] <- 0
+caster2 <- caster2[order(caster2$un),]
+caster2$un <- NULL
+newDayData <- as.data.frame(cbind(newDayData, caster2))
+newDayData$un <- NULL
 
-newDayData <- as.matrix(newDayData[,c(6:12,14:20)])
+newDayData <- as.matrix(newDayData[,c(7:13,15:21,23:length(newDayData))])
 
 probNew <- as.data.frame(matrix(predict(boost2, newDayData), ncol = 7, byrow = T))
 
@@ -1529,6 +1573,11 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
   
   ## Calculate the number of at bats for each batter vs starters & bullpen
   
+  pFile <- predictionFile
+  
+  predictionFile$gametime <- NULL
+  predictionFile$home <- NULL
+
   probTotal <- as.data.frame(cbind(predictionFile[,1:8], probs))
   
   ## Pull out just starter information
@@ -1799,7 +1848,7 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
                                           strikeoutOutcome = sum(strikeoutOutcome),
                                           otherOutcome = sum(otherOutcome)))
   probBullpenG <- merge(probBullpenG, bullpenMult[,c('batter','bullpenMulitplier')], by.x = substr('batter',1 ,6), by.y = 'batter', all.x = T)
-  
+
   ## Multiply aggregate bullpen predictions vs. number of expected bullpen at bats
   
   probBullpenG$singleAggProb <- probBullpenG$singleOutcome * probBullpenG$bullpenMulitplier
@@ -1981,11 +2030,12 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
   colnames(totalPlayerOutcome) <- c('player_code', 'dkExp', 'fdExp', 'yahooExp')
   
   ## Create DF with salary info, positions & lineup spot for each player
-
+  
   salaryInfo$conc <- paste0(salaryInfo$player,"_", salaryInfo$team)
-  salaryInfo2 <- salaryInfo[,c(10,4,6,7,9)]
+  salaryInfo2 <- salaryInfo[,c(12,5,7,8,11)]
   sal <- dcast(salaryInfo2, conc ~ site, value.var = 'salary')
   sal <- as.data.frame(cSplit(sal, 'conc', sep = '_'))
+
   sal <- sal[,c(4,1:3)]
   colnames(sal)[1] <- 'player'
   pos <- dcast(salaryInfo, conc ~ site, value.var = 'position')
@@ -2020,9 +2070,27 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
   sal <- merge(sal, playerLookupTotal, by = 'player', all.x = T)
   sal[is.na(sal)] <- 'NoName'
   
-  ## Merge Salary info with projected outcome
+  ## Get gametime information
+
+  gtB <- pFile[,c('gametime','batter')]
+  gtB$dups <- duplicated(gtB$batter)
+  gtB <- filter(gtB, dups == F)
+  gtB$dups <- NULL
+  colnames(gtB) = c('gametime','player')
+  gtP <- pFile[,c('gametime','pitcher')]
+  gtP$dups <- duplicated(gtP$pitcher)
+  gtP <- filter(gtP, dups == F)
+  gtP <- gtP[,1:2]
+  colnames(gtP) <- c('gametime','player')
+  gt <- as.data.frame(rbind(gtB, gtP))
+  gt$dups <- duplicated(gt$player)
+  gt <- filter(gt, dups == F)
+  gt <- gt[,1:2]
   
+  ## Merge Salary info with projected outcome
+
   sal <- merge(sal, totalPlayerOutcome, by = 'player_code', all.x = T)
+  sal <- merge(sal, gt, by.x = 'player_code', by.y = 'player', all.x = T)
   colnames(sal)[3:5] <- c('dkSal', 'fdSal', 'yahooSal')
   sal$dkPos <- ifelse(sal$dkPos %in% c('RP','pitcher','P'),'SP',sal$dkPos)
   sal$fdPos <- ifelse(sal$fdPos %in% c('RP','pitcher','P'),'SP',sal$fdPos)
@@ -2033,7 +2101,7 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
 
 ## Generate final predictions
 
-finalPreds <- predictionAggs(probNew, totalRoto, bullpenData, newSalary, batterLookup, pitcherLookup, batSteals, pitchSteals,batRBIs, pitchRBIs,batRuns, pitchRuns, '2016-06-20')
+finalPreds <- predictionAggs(probNew, totalRoto, bullpenData, newSalary, batterLookup, pitcherLookup, batSteals, pitchSteals,batRBIs, pitchRBIs,batRuns, pitchRuns, '2016-06-25')
 
 scatPlotPreds <- function(dataframe, var1, var2, site, position) {
   bb <- dataframe[grep(position,dataframe[,site]),]
@@ -2043,5 +2111,5 @@ scatPlotPreds <- function(dataframe, var1, var2, site, position) {
     geom_smooth()
 }
 
-scatPlotPreds(finalPreds, 'fdSal', 'fdExp','fdPos', '2B')
+scatPlotPreds(finalPreds, 'fdSal', 'fdExp','fdPos', '1B')
 
