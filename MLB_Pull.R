@@ -19,7 +19,7 @@ library(stringr)
 ## Currently updated through 5/20/2016 - contains all of 2015 season + all data through 5/20/2016 for 2016 season
 ## Run below code to get up to date through 5/31
 
-directory <- '~/Documents/Northwestern/498/MLB_Scraper/pitchRx Data/new'
+directory <- '~/Desktop/Data Upload'
 date <- '2016-06-25'
 
 pitchRxScraper <- function(startDate, endDate) {
@@ -1265,8 +1265,8 @@ err
 ## ex - salaryData('2016-04-05', '~/Documents/Northwestern/498/MLB Scraped')
 
 ## Pull rotogrinders data from given day
-date <- '2016-06-26'
-day <- date
+library(stringr)
+date <- '2016-06-27'
 salaryData <- function(day, location) {
   
   ## Load required packages
@@ -1526,14 +1526,13 @@ salaryModel <- function(newSalaryData, clusterData) {
   colnames(spMatchups)[7] <- 'batTeam'
 
     ## Create bullpen database
-head(pitcherLookup)
+
   pitchingTotal <- merge(pitcherLookup, pitcherPitches, on = 'pitcher', all.x = T)
   pitchingTotal$type <- ifelse(pitchingTotal$mean.entry.outs > 9, 'RP', 'SP')
   
   ## Now create all bullpen possible matchups
-head(bullpen)  
-head(battersRoto)  
-bullpen <- filter(pitchingTotal, type == 'RP')
+
+  bullpen <- filter(pitchingTotal, type == 'RP')
   bullMatchups <- merge(battersRoto, bullpen[,c(1,4,5,9)], by.x = 'batOpponent', by.y = 'team')
   bullMatchups <- bullMatchups[,c('gametime','pitcher', 'batOpponent', 'p_throws', 'type', 'batter', 'batTeam', 'stand', 'lineupSpot','home')]
   colnames(bullMatchups)[3] <- 'pitchTeam'
