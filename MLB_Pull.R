@@ -1266,7 +1266,7 @@ err
 
 ## Pull rotogrinders data from given day
 library(stringr)
-date <- '2016-06-27'
+date <- '2016-06-28'
 salaryData <- function(day, location) {
   
   ## Load required packages
@@ -1282,13 +1282,12 @@ salaryData <- function(day, location) {
   urlList <- list()
   a <- 0
   ## Get URL using day parameter & list of fantasy sites
-  
+
   for (s in sites) {
     a <- a + 1
     siteURL <- read_html(paste0('https://rotogrinders.com/lineups/mlb?date=',day,'&site=',s))
     urlList[[a]] <- siteURL
   }
-  print('sites for loop')
   ## Create empty list for storing salaries
 
   salaryList <- list()
@@ -1313,7 +1312,6 @@ salaryData <- function(day, location) {
     grinders <- gsub('\\n', '', grinders)
     grinders <- gsub("                            ", "_", grinders)
     grinders <- gsub("                        ", "_", grinders)
-    
 
     ## Remove timestamp from beginning of pull
     
@@ -1324,7 +1322,7 @@ salaryData <- function(day, location) {
     gc <- ifelse(gc == 'PM ET', 'drop', gc)
     grinders[1:length(gc)] <- gc
     grinders <- grinders[grinders != 'drop']
-    print('post rvest & removal of leading timestamps')
+
     ## Put player data into a data frame organized by game
     if(length(grinders) %% 79 != 0) {
       message('Some Unknown Person or People is/are playing in one/some of the games')
@@ -1338,13 +1336,12 @@ salaryData <- function(day, location) {
           if (check1 != 'none') break
           if (i > length(grinders)) break
         }
-        id1 <- c(seq_along(probs), check1 - 4.5, check1 - 4.4, check1 - 4.3, check1 - 4.3)
+        id1 <- c(seq_along(probs), check1 - 8.5, check1 - 8.4, check1 - 8.3, check1 - 8.3)
         id2 <- c(seq_along(probs), check1 - 2.5, check1 - 2.4, check1 + 22.5, check1 + 22.6, check1 + 22.7, check1 + 22.8)
         id3 <- c(seq_along(probs), check1 - 2.5, check1 - 2.4)
         for (i in 1:b) {
           grinders[len+i] <- 'missing_missing'
         }
-        
         grinders <- if(b%%4 == 0) {
           grinders[order(id1)]
         } else if (b%%6 == 0 & b%%3 == 0) {
@@ -1354,13 +1351,12 @@ salaryData <- function(day, location) {
       }
       grinders <- missingCheck()
     }
-   print(paste0('post error checking pre creation of data frame',c))
     grinders <- as.data.frame(matrix(grinders, 
                                      nrow = (length(grinders)/79), 
                                      byrow=T), 
                               stringsAsFactors = F)
     
-  
+
     ## Create a list of NL teams - used for removing pitchers being double counted in games played in NL Parks    
     
     nlList <- c('Marlins', 'Mets', 'Nationals', 'Phillies', 'Braves',
@@ -1375,6 +1371,7 @@ salaryData <- function(day, location) {
     ## Necessary based on formatting of original data pull
     
     stacker <- function(df) {
+      df <- grinders
       l <- 0
       for (i in seq(6, 38, 4)) {
         l <- l + 1
@@ -1402,7 +1399,6 @@ salaryData <- function(day, location) {
         colnames(d) <- c('gametime','team', 'opponent', 'player', 'position', 'stand','salary','lineupSpot','side','home')
         playerStack[[l]] <- d
       }
-      print(paste0('post player stack for batters ',c))
       ## Note - pitchers handled separately here because of additional extraneous data that must be removed
       
       l <- l + 1
@@ -1425,8 +1421,8 @@ salaryData <- function(day, location) {
       totalPitch$lineupSpot <- 9
       totalPitch <- totalPitch[,c(1:4,9,8,7,10,5,6)]
       colnames(totalPitch) <- c('gametime','team', 'opponent', 'player', 'position', 'stand', 'salary', 'lineupSpot', 'side','home')
-      totalPitch[,c(1:3)] <- sapply(totalPitch[,c(1:4)], as.character)
-      print('post pitch stack')
+      totalPitch[,c(1:4)] <- sapply(totalPitch[,c(1:4)], as.character)
+      
       ## Stack pitchers onto existing postional players file, then convert to data frame
       
       playerStack[[l]] <- totalPitch
@@ -1434,28 +1430,27 @@ salaryData <- function(day, location) {
       playerDF$salary <- gsub('K', 
                               '', 
                               playerDF$salary)
+      playerDF$salary <- gsub('missing_missing', 0, playerDF$salary)
       playerDF$salary <- as.numeric(as.character(playerDF$salary))
+      
       playerDF <- playerDF[order(playerDF$team,
                                  playerDF$opponent,
                                  playerDF$lineupSpot),]
-      print('post pitcher & batter stack')
+      
       ## Change column name to salary, and add in variable that indicates the site the salaries come from
       
       playerDF$site <- sites[c]
       return(playerDF)
     }
-    print('post playerDF')
     ## Run this function for each site, then stack on top of each other
     
     grindersList <- stacker(grinders)
     salaryList[[c]] <- grindersList
   }
-  print('post grindersList')
   ## Final output is a dataframe that has the salaries for each site stacked on top of one and other
   
   grindersDF <- do.call(rbind.data.frame, salaryList) 
   grindersDF$salary[is.na(grindersDF$salary)] <- 0
-  print('post grindersDF')
   setwd(location)
   write.csv(grindersDF, paste0(day,"_DailyFantasy.csv"), row.names = F)
   return(grindersDF)
@@ -2029,7 +2024,7 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
   colnames(totalPlayerOutcome) <- c('player_code', 'dkExp', 'fdExp', 'yahooExp')
   
   ## Create DF with salary info, positions & lineup spot for each player
-  
+
   salaryInfo$conc <- paste0(salaryInfo$player,"_", salaryInfo$team)
   salaryInfo2 <- salaryInfo[,c(12,5,7,8,11)]
   sal <- dcast(salaryInfo2, conc ~ site, value.var = 'salary')
@@ -2100,7 +2095,7 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
 
 ## Generate final predictions
 
-finalPreds <- predictionAggs(probNew, totalRoto, bullpenData, newSalary, batterLookup, pitcherLookup, batSteals, pitchSteals,batRBIs, pitchRBIs,batRuns, pitchRuns, '2016-06-25')
+finalPreds <- predictionAggs(probNew, totalRoto, bullpenData, newSalary, batterLookup, pitcherLookup, batSteals, pitchSteals,batRBIs, pitchRBIs,batRuns, pitchRuns, '2016-06-28')
 
 scatPlotPreds <- function(dataframe, var1, var2, site, position) {
   bb <- dataframe[grep(position,dataframe[,site]),]
@@ -2110,5 +2105,5 @@ scatPlotPreds <- function(dataframe, var1, var2, site, position) {
     geom_smooth()
 }
 
-scatPlotPreds(finalPreds, 'fdSal', 'fdExp','fdPos', '1B')
+scatPlotPreds(finalPreds, 'fdSal', 'fdExp','fdPos', 'OF')
 
