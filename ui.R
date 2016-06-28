@@ -1,66 +1,76 @@
+library(shiny)
+library(plotly)
 
-require('devtools')
-require('shinyapps')
-require(rCharts)
+finalPreds2 <- finalPreds
 
-shinyUI(pageWithSidebar(
-  headerPanel('Team Maryland Fantasy Baseball Lineup Optimizer'),
+shinyUI(fluidPage(
+  headerPanel('Daily Fantasy Picking'),
   sidebarPanel(
-    radioButtons('optimizer','Optimize Lineup',c('yes','no'),inline=TRUE),
-    selectInput(inputId = 'optimal',
-                label = 'Optimal Lineup',
-                choices = c('yes','no'),
-                selected = ''),
-    selectInput(inputId = 'pitcher',
-                label = 'Pitcher',
-                choices = c('','Chris Sale','Zach Greinke','Clayton Kershaw'),
-                selected = 'Chris Sale',selectize=F,multiple=F),
+    selectInput(inputId = 'FantasySite',
+                label = 'Fantasy Baseball Site',
+                choices= c('Draft Kings', 'FanDuel', 'Yahoo'),
+                selected = 'FanDuel',selectize=F,multiple=F),
+    selectInput(inputId = 'position',
+                label = 'Select Position for Chart',
+                choices=c('All','P','C','1B','2B','3B','SS','OF'),
+                selected = 'All',selectize=F,multiple=F),
+    selectInput(inputId = 'pitcher1',
+                label = 'Pitcher1',
+                choices= as.character(finalPreds2[grep('SP', finalPreds2$dkPos), 2]),
+                selected = as.character(finalPreds2[grep('SP', finalPreds2$dkPos)[1], 2]),selectize=F,multiple=F),
+    p("If playing with Draft Kings, select a second pitcher"),
+    selectInput(inputId = 'pitcher2',
+                label = 'Pitcher2',
+                choices= as.character(finalPreds2[grep('SP', finalPreds2$dkPos), 2]),
+                selected = as.character(finalPreds2[grep('SP', finalPreds2$dkPos)[2], 2]),selectize=F,multiple=F),
     selectInput(inputId = 'catcher',
                 label = 'Catcher',
-                choices = c('','Buster Posey','Salvi Perez','Yadier Molina'),
-                selected = 'Buster Posey',selectize=F,multiple=F),
+                choices = as.character(finalPreds2[grep('C', finalPreds2$dkPos), 2]),
+                selected = as.character(finalPreds2[grep('C', finalPreds2$dkPos)[1], 2]),selectize=F,multiple=F),
     selectInput(inputId = 'firstBase',
                 label = 'First Base',
-                choices = c('','Jose Abreu','Miguel Cabrera','Prince Fielder'),
-                selected = 'Jose Abreu',selectize=F,multiple=F),
+                choices = as.character(finalPreds2[grep('1B', finalPreds2$dkPos), 2]),
+                selected = as.character(finalPreds2[grep('1B', finalPreds2$dkPos)[1], 2]),selectize=F,multiple=F),
     selectInput(inputId = 'secondBase',
                 label = 'Second Base',
-                choices = c('','Dee Gordon','Jose Altuve','Jason Kipnis'),
-                selected = 'Dee Gordon',selectize=F,multiple=F),
+                choices = as.character(finalPreds2[grep('2B', finalPreds2$dkPos), 2]),
+                selected = as.character(finalPreds2[grep('2B', finalPreds2$dkPos)[1], 2]),selectize=F,multiple=F),
     selectInput(inputId = 'thirdBase',
                 label = 'Third Base',
-                choices = c('','Yunel Escobar','Josh Donaldson','Matthew Duffy'),
-                selected = 'Yunel Escobar',selectize=F,multiple=F),
+                choices = as.character(finalPreds2[grep('3B', finalPreds2$dkPos), 2]),
+                selected = as.character(finalPreds2[grep('SS', finalPreds2$dkPos)[1], 2]),selectize=F,multiple=F),
     selectInput(inputId = 'shortstop',
                 label = 'Shortstop',
-                choices = c('','Xander Bogaerts','Tror Tulowitzki','Jhonny Peralta'),
-                selected = 'Xander Bogaerts',selectize=F,multiple=F),
-    selectInput(inputId = 'leftField',
-                label = 'Left Field',
-                choices = c('','David Peralta','Michael Brantley','Yoenis Cespedes'),
-                selected = 'David Peralta',selectize=F,multiple=F),
-    selectInput(inputId = 'centerField',
-                label = 'Center Field',
-                choices = c('','A.J. Pollock','Lorenzo Cain','Mike Trout'),
-                selected = 'Mike Trout',selectize=F,multiple=F),
-    selectInput(inputId = 'rightField',
-                label = 'Right Field',
-                choices = c('','Bryce Harper','Ender Inciarte','Nelson Cruz'),
-                selected = 'Bryce Harper',selectize=F,multiple=F),
-    selectInput(inputId = 'designatedHitter',
-                label = 'Designated Hitter',
-                choices = c('','Kendrys Morales','David Ortiz','Billy Butler'),
-                selected = 'Kendrys Morales',selectize=F,multiple=F)
-
+                choices = as.character(finalPreds2[grep('SS', finalPreds2$dkPos), 2]),
+                selected = as.character(finalPreds2[grep('SS', finalPreds2$dkPos)[1], 2]),selectize=F,multiple=F),
+    selectInput(inputId = 'outfield1',
+                label = 'Outfield1',
+                choices = as.character(finalPreds2[grep('OF', finalPreds2$dkPos), 2]),
+                selected = as.character(finalPreds2[grep('OF', finalPreds2$dkPos)[1], 2]),selectize=F,multiple=F),
+    selectInput(inputId = 'outfield1',
+                label = 'Outfield1',
+                choices = as.character(finalPreds2[grep('OF', finalPreds2$dkPos), 2]),
+                selected = as.character(finalPreds2[grep('OF', finalPreds2$dkPos)[2], 2]),selectize=F,multiple=F),
+    selectInput(inputId = 'outfield1',
+                label = 'Outfield1',
+                choices = as.character(finalPreds2[grep('OF', finalPreds2$dkPos), 2]),
+                selected = as.character(finalPreds2[grep('OF', finalPreds2$dkPos)[3], 2]),selectize=F,multiple=F)
   ),
   
   mainPanel(
-    tabsetPanel(type="tab",
+    
+    ## Create two tabs - one for player stats, one for chart
+    
+    tabsetPanel(type = 'tab',
                 
-
-                  tabPanel("Player Stats",dataTableOutput("player.stats"))
-                #tabPanel("Top Crimes in Next Four Hours",tableOutput("freq.data")
-
-      )
-    )
+                ## Player Stats tab
+                
+                tabPanel('Projected Stats', dataTableOutput('playerStats'))),
+    
+                ## Chart tab
+    
+                tabPanel('Projected Stats Viz', plotlyOutput('chart'))
+    
+  )
 ))
+
