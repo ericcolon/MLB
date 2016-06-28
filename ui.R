@@ -4,21 +4,22 @@ library(plotly)
 finalPreds2 <- finalPreds
 
 shinyUI(fluidPage(
-  headerPanel('Daily Fantasy Picking'),
+  headerPanel('Daily Fantasy Picks'),
   sidebarPanel(
+    tags$style(type='text/css', ".selectize-input { font-size: 8px; line-height: 8px;} .selectize-dropdown { font-size: 8px; line-height: 8px; }"),
     selectInput(inputId = 'FantasySite',
                 label = 'Fantasy Baseball Site',
                 choices= c('Draft Kings', 'FanDuel', 'Yahoo'),
                 selected = 'FanDuel',selectize=F,multiple=F),
     selectInput(inputId = 'position',
                 label = 'Select Position for Chart',
-                choices=c('All','P','C','1B','2B','3B','SS','OF'),
+                choices=c('All','SP','C','1B','2B','3B','SS','OF'),
                 selected = 'All',selectize=F,multiple=F),
     selectInput(inputId = 'pitcher1',
                 label = 'Pitcher1',
                 choices= as.character(finalPreds2[grep('SP', finalPreds2$dkPos), 2]),
                 selected = as.character(finalPreds2[grep('SP', finalPreds2$dkPos)[1], 2]),selectize=F,multiple=F),
-    p("If playing with Draft Kings, select a second pitcher"),
+    p("Select a 2nd Pitcher for DK"),
     selectInput(inputId = 'pitcher2',
                 label = 'Pitcher2',
                 choices= as.character(finalPreds2[grep('SP', finalPreds2$dkPos), 2]),
@@ -47,16 +48,17 @@ shinyUI(fluidPage(
                 label = 'Outfield1',
                 choices = as.character(finalPreds2[grep('OF', finalPreds2$dkPos), 2]),
                 selected = as.character(finalPreds2[grep('OF', finalPreds2$dkPos)[1], 2]),selectize=F,multiple=F),
-    selectInput(inputId = 'outfield1',
-                label = 'Outfield1',
+    selectInput(inputId = 'outfield2',
+                label = 'Outfield2',
                 choices = as.character(finalPreds2[grep('OF', finalPreds2$dkPos), 2]),
                 selected = as.character(finalPreds2[grep('OF', finalPreds2$dkPos)[2], 2]),selectize=F,multiple=F),
-    selectInput(inputId = 'outfield1',
-                label = 'Outfield1',
+    selectInput(inputId = 'outfield3',
+                label = 'Outfield3',
                 choices = as.character(finalPreds2[grep('OF', finalPreds2$dkPos), 2]),
-                selected = as.character(finalPreds2[grep('OF', finalPreds2$dkPos)[3], 2]),selectize=F,multiple=F)
+                selected = as.character(finalPreds2[grep('OF', finalPreds2$dkPos)[3], 2]),selectize=F,multiple=F),
+    width = 4
   ),
-  
+
   mainPanel(
     
     ## Create two tabs - one for player stats, one for chart
@@ -65,12 +67,13 @@ shinyUI(fluidPage(
                 
                 ## Player Stats tab
                 
-                tabPanel('Projected Stats', dataTableOutput('playerStats'))),
+                tabPanel('Projected Stats', dataTableOutput('playerStats')),
     
                 ## Chart tab
     
                 tabPanel('Projected Stats Viz', plotlyOutput('chart'))
-    
+                         
+    )
   )
 ))
 

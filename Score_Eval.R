@@ -82,7 +82,8 @@ p <- plot_ly(fdResults, x = name, y = Score, type = 'scatter', mode = 'markers',
                                                             fillcolor = toRGB("orange", alpha = 0.1))) %>%
      add_trace(x = name, y = f2$fit - 1.96 * f2$se.fit, mode = "lines",
                fill = "tonexty", showlegend = F, line = list(color = toRGB("orange", alpha = 0.1),
-                                                             fillcolor = toRGB("orange", alpha = 0.1)))
+                                                             fillcolor = toRGB("orange", alpha = 0.1))) %>%
+  layout(title = 'My Score vs. Winning Score - All Games Scatter', xaxis = list(title = 'Day'), yaxis = list(title = 'Score'))
 
 p
 
@@ -103,9 +104,10 @@ wp <- plot_ly(ws, x = name, y = myWeightedScore, type = 'scatter', mode = 'marke
                                                          fillcolor = toRGB("orange", alpha = 0.1))) %>%
   add_trace(x = name, y = fw2$fit - 1.96 * fw2$se.fit, mode = "lines",
             fill = "tonexty", showlegend = F, line = list(color = toRGB("orange", alpha = 0.1),
-                                                          fillcolor = toRGB("orange", alpha = 0.1)))
+                                                          fillcolor = toRGB("orange", alpha = 0.1))) %>%
+  layout(title = 'My Score vs. Winning Score - Weighted by Investment per Day', xaxis = list(title = 'Day'), yaxis = list(title = 'Score'))
 
-
+wp
 ## Create probability distribution for scores based on unweighted observations
 
 x <- seq(mean(fdResults$Score) - 3* sd(fdResults$Score), mean(fdResults$Score) + 3 * sd(fdResults$Score), 1)
@@ -125,7 +127,8 @@ pd <- plot_ly(x = x, y = round(y1, 4), type = 'scatter', name = 'My Score Dist',
   add_trace(x = c(mean(fdResults$WinScore) + (sd(fdResults$WinScore) * 2), mean(fdResults$WinScore) + (sd(fdResults$WinScore) * 2)), y = c(0, y2[ceiling(length(x2) / 2) + ceiling(sd(fdResults$WinScore)*2)]), showlegend = F, line = list(color = 'orange')) %>%
   add_trace(x = c(mean(fdResults$WinScore) - sd(fdResults$WinScore), mean(fdResults$WinScore) - sd(fdResults$WinScore)), y = c(0, y2[ceiling(length(x2) / 2) - ceiling(sd(fdResults$WinScore))]), showlegend = F, line = list(color = 'orange')) %>%
   add_trace(x = c(mean(fdResults$WinScore) - (sd(fdResults$WinScore) * 2), mean(fdResults$WinScore) - (sd(fdResults$WinScore) * 2)), y = c(0, y2[ceiling(length(x2) / 2) - ceiling(sd(fdResults$WinScore)*2)]), showlegend = F, line = list(color = 'orange')) %>%
-  add_trace(x = x2, y = y2, fill = "tozeroy", showlegend = F, name = 'Winning Score Dist Fill', line = list(color = 'orange'))
+  add_trace(x = x2, y = y2, fill = "tozeroy", showlegend = F, name = 'Winning Score Dist Fill', line = list(color = 'orange')) %>%
+  layout(title = 'Probability Distribution - My Score vs. Winning Score', xaxis = list(title = 'Score'), yaxis = list(title = 'Frequency'))
 
 xw <- seq(mean(ws$myWeightedScore) - 3* sd(ws$myWeightedScore), mean(ws$myWeightedScore) + 3 * sd(ws$myWeightedScore), 1)
 xw2 <- seq(mean(ws$winWeightedScore) - 3* sd(ws$winWeightedScore), mean(ws$winWeightedScore) + 3 * sd(ws$winWeightedScore), 1)
@@ -144,11 +147,19 @@ pdw <- plot_ly(x = xw, y = round(yw1, 4), type = 'scatter', name = 'My Score Dis
   add_trace(x = c(mean(ws$winWeightedScore) + (sd(ws$winWeightedScore) * 2), mean(ws$winWeightedScore) + (sd(ws$winWeightedScore) * 2)), y = c(0, yw2[ceiling(length(xw2) / 2) + ceiling(sd(ws$winWeightedScore)*2)]), showlegend = F, line = list(color = 'orange')) %>%
   add_trace(x = c(mean(ws$winWeightedScore) - sd(ws$winWeightedScore), mean(ws$winWeightedScore) - sd(ws$winWeightedScore)), y = c(0, yw2[ceiling(length(xw2) / 2) - ceiling(sd(ws$winWeightedScore))]), showlegend = F, line = list(color = 'orange')) %>%
   add_trace(x = c(mean(ws$winWeightedScore) - (sd(ws$winWeightedScore) * 2), mean(ws$winWeightedScore) - (sd(ws$winWeightedScore) * 2)), y = c(0, yw2[ceiling(length(xw2) / 2) - ceiling(sd(ws$winWeightedScore)*2)]), showlegend = F, line = list(color = 'orange')) %>%
-  add_trace(x = xw2, y = yw2, fill = "tozeroy", showlegend = F, name = 'Winning Score Dist Fill', line = list(color = 'orange'))
+  add_trace(x = xw2, y = yw2, fill = "tozeroy", showlegend = F, name = 'Winning Score Dist Fill', line = list(color = 'orange')) %>%
+  layout(title = 'Probability Distribution - My Score vs. Winning Score Weighted by Investment per Day', xaxis = list(title = 'Score'), yaxis = list(title = 'Frequency'))
 
 
-p
-wp
-pd
-pdw
+## Publish plots to Plot.ly
+
+Sys.setenv('plotly_username'='wesleypasfield')
+Sys.setenv('plotly_api_key'='nka11fh8p8')
+plotly_POST(p, filename = 'mlbScatter')
+plotly_POST(wp, filename = 'mlbScatterWeighted')
+plotly_POST(pd, filename = 'mlbProbDist')
+plotly_POST(pdw, filename = 'mlbProbDistWeighted')
+
+library(plotly)
+
 
