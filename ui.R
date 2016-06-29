@@ -1,7 +1,10 @@
 library(shiny)
 library(plotly)
+library(splitstackshape)
+library(dplyr)
+library(stringr)
 
-finalPreds2 <- finalPreds
+finalPreds2 <- read.csv('finalPreds.csv', stringsAsFactors = F)
 
 shinyUI(fluidPage(
   headerPanel('Daily Fantasy Picks'),

@@ -1266,7 +1266,7 @@ err
 
 ## Pull rotogrinders data from given day
 library(stringr)
-date <- '2016-06-28'
+date <- Sys.Date()
 salaryData <- function(day, location) {
   
   ## Load required packages
@@ -2095,7 +2095,7 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
 
 ## Generate final predictions
 
-finalPreds <- predictionAggs(probNew, totalRoto, bullpenData, newSalary, batterLookup, pitcherLookup, batSteals, pitchSteals,batRBIs, pitchRBIs,batRuns, pitchRuns, '2016-06-28')
+finalPreds <- predictionAggs(probNew, totalRoto, bullpenData, newSalary, batterLookup, pitcherLookup, batSteals, pitchSteals,batRBIs, pitchRBIs,batRuns, pitchRuns, date)
 
 scatPlotPreds <- function(dataframe, var1, var2, site, position) {
   bb <- dataframe[grep(position,dataframe[,site]),]

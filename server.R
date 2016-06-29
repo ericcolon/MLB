@@ -1,8 +1,21 @@
-finalPreds2 <- finalPreds
 library(shiny)
 library(plotly)
+library(splitstackshape)
+library(dplyr)
+library(stringr)
 library(rsconnect)
-rsconnect::setAccountInfo(name = 'wesleypasfield', token = '2732D4C57528298E4546CF9DB272F2CF', secret = 'oM9XSnYYw1fOpl5OzpI0uVFDLNAj550v2N+EIeJX')
+rsconnect::setAccountInfo(name = 'wesleypasfield', 
+                          token = '2732D4C57528298E4546CF9DB272F2CF', 
+                          secret = 'oM9XSnYYw1fOpl5OzpI0uVFDLNAj550v2N+EIeJX')
+
+## For Deployment
+
+finalPreds2 <- read.csv('finalPreds.csv', stringsAsFactors = F)
+
+## To do - add comments
+##       - add optimizer - linear algebra
+##       - Increase marker size on chart
+##       - Make Color scheme easier to see (yellow)
 
 shinyServer(function(input, output) {
   
@@ -88,6 +101,7 @@ shinyServer(function(input, output) {
     }
     finalPreds2$gametime <- paste0(substr(finalPreds2$gametime, 1,2)," ",str_sub(finalPreds2$gametime, start = -5))
     finalPreds2$gametime <- gsub(':','',finalPreds2$gametime)
+    finalPreds2 <- finalPreds2[order(finalPreds2$gametime),]
     if(input$position!='All'){
       finalPreds2 <- finalPreds2[finalPreds2$pos==input$position,]
     }
@@ -106,7 +120,7 @@ shinyServer(function(input, output) {
                 fill = "tonexty", showlegend = F, line = list(color = toRGB("gray", alpha = 0.1),
                                                               fillcolor = toRGB("gray", alpha = 0.1))) %>%
       
-      layout(title = 'Salary vs. Expected Output', xaxis = list(title = 'Salary'), yaxis = list(title = 'Score'),autosize = F, width = 1200, height = 800)
+      layout(title = 'Salary vs. Expected Output', xaxis = list(title = 'Salary'), yaxis = list(title = 'Score'),autosize = F, width = 1000, height = 800)
   })
   
 })

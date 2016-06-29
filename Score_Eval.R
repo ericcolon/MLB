@@ -150,6 +150,8 @@ pdw <- plot_ly(x = xw, y = round(yw1, 4), type = 'scatter', name = 'My Score Dis
   add_trace(x = xw2, y = yw2, fill = "tozeroy", showlegend = F, name = 'Winning Score Dist Fill', line = list(color = 'orange')) %>%
   layout(title = 'Probability Distribution - My Score vs. Winning Score Weighted by Investment per Day', xaxis = list(title = 'Score'), yaxis = list(title = 'Frequency'))
 
+pd
+pdw
 
 ## Publish plots to Plot.ly
 
