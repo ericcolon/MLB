@@ -5,7 +5,7 @@ library(splitstackshape)
 ## Manipulate results file
 
 fdResults <- read.csv(paste0('fanduel entry history ',gsub("-","",Sys.Date()),'.csv'), stringsAsFactors = F)
-colnames(fdResults) <- c('EntryID','Sport','date','Title','SalaryCap','Score','WinScore','Position','Entries','Opp','Cost','Winning','Link', 'X')
+colnames(fdResults) <- c('EntryID','Sport','date','Title','SalaryCap','Score','WinScore','Position','Entries','Type','Cost','Winning','Link', 'X')
 fdResults$X <- NULL
 fdResults <- filter(fdResults, !is.na(Score))
 fdResults <- filter(fdResults, !is.na(WinScore))
@@ -29,7 +29,7 @@ fdResults <- merge(fdResults, dates, by = 'date')
 
 ## Calc weighted average score per day based on investment
 
-weightScore <- fdResults[,c('date','Score','WinScore','Cost')]
+weightScore <- fdResults[,c('date','Type','Score','WinScore','Cost')]
 
 ws <-group_by(weightScore, date) %>%
      summarise(ww = sum(Cost)) %>%
@@ -45,7 +45,6 @@ ws <- group_by(weightScore, date) %>%
   as.data.frame()
 
 ws <- merge(ws, dates, by = 'date')
-
 
 ## Create loess predictions for both unweighted & weighted observations
 
@@ -85,8 +84,6 @@ p <- plot_ly(fdResults, x = name, y = Score, type = 'scatter', mode = 'markers',
                                                              fillcolor = toRGB("orange", alpha = 0.1))) %>%
   layout(title = 'My Score vs. Winning Score - All Games Scatter', xaxis = list(title = 'Day'), yaxis = list(title = 'Score'))
 
-p
-
 ## Weighted Score Chart - weights are entry fees, summarized by day
 
 wp <- plot_ly(ws, x = name, y = myWeightedScore, type = 'scatter', mode = 'markers', name = 'My Weighted Score', markers = list(color = 'blue')) %>%
@@ -107,7 +104,6 @@ wp <- plot_ly(ws, x = name, y = myWeightedScore, type = 'scatter', mode = 'marke
                                                           fillcolor = toRGB("orange", alpha = 0.1))) %>%
   layout(title = 'My Score vs. Winning Score - Weighted by Investment per Day', xaxis = list(title = 'Day'), yaxis = list(title = 'Score'))
 
-wp
 ## Create probability distribution for scores based on unweighted observations
 
 x <- seq(mean(fdResults$Score) - 3* sd(fdResults$Score), mean(fdResults$Score) + 3 * sd(fdResults$Score), 1)
@@ -150,8 +146,6 @@ pdw <- plot_ly(x = xw, y = round(yw1, 4), type = 'scatter', name = 'My Score Dis
   add_trace(x = xw2, y = yw2, fill = "tozeroy", showlegend = F, name = 'Winning Score Dist Fill', line = list(color = 'orange')) %>%
   layout(title = 'Probability Distribution - My Score vs. Winning Score Weighted by Investment per Day', xaxis = list(title = 'Score'), yaxis = list(title = 'Frequency'))
 
-pd
-pdw
 
 ## Publish plots to Plot.ly
 
@@ -164,4 +158,112 @@ plotly_POST(pdw, filename = 'mlbProbDistWeighted')
 
 library(plotly)
 
+## Two sample T Test - evaluate if there is a significant difference in means
+
+## First on individual games - potential issues with same variance here, but so far P value above threshold
+## Makes sense why there would be variance issues here
+
+var.test(fdResults$Score, fdResults$WinScore)
+t.test(fdResults$Score, fdResults$WinScore, var.equal = F, paired = F, conf.level = 0.99)
+
+## Now on individual days - p value above threshold now, but still a very low sample size
+## Potential for variance issues, but so far none
+
+var.test(ws$myWeightedScore, ws$winWeightedScore)
+t.test(ws$myWeightedScore, ws$winWeightedScore, var.equal = F, paired = F, conf.level = 0.99)
+
+## Likelihood a random variable from my score is greater than WinScore
+## Using individual scores
+
+myRand <- rnorm(1000000, mean = mean(fdResults$Score), sd = sd(fdResults$Score))
+winRand <- rnorm(1000000, mean = mean(fdResults$WinScore), sd = sd(fdResults$WinScore))
+
+totalRand <- as.data.frame(cbind(myRand, winRand))
+totalRand$win <- ifelse(totalRand$myRand > totalRand$winRand, 1, 0)
+mean(totalRand$win)
+
+## Using daily scores
+
+myDayRand <- rnorm(1000000, mean = mean(ws$myWeightedScore), sd = sd(ws$myWeightedScore))
+winDayRand <- rnorm(1000000, mean = mean(ws$winWeightedScore), sd = sd(ws$winWeightedScore))
+
+totalDayRand <- as.data.frame(cbind(myDayRand, winDayRand))
+totalDayRand$win <- ifelse(totalDayRand$myDayRand > totalDayRand$winDayRand, 1, 0)
+mean(totalDayRand$win)
+
+## Break into hedge and big bets - see if there's a pattern
+
+## Big First
+
+fdResultsBig <- filter(fdResults, Type == 'Big')
+myBigRand <- rnorm(1000000, mean = mean(fdResultsBig$Score), sd = sd(fdResultsBig$Score))
+winBigRand <- rnorm(1000000, mean = mean(fdResultsBig$WinScore), sd = sd(fdResultsBig$WinScore))
+
+totalBigRand <- as.data.frame(cbind(myBigRand, winBigRand))
+totalBigRand$win <- ifelse(totalBigRand$myBigRand > totalBigRand$winBigRand, 1, 0)
+mean(totalBigRand$win)
+
+## Hedge Next
+
+fdResultsHedge <- filter(fdResults, Type == 'Hedge')
+myHedgeRand <- rnorm(1000000, mean = mean(fdResultsHedge$Score), sd = sd(fdResultsHedge$Score))
+winHedgeRand <- rnorm(1000000, mean = mean(fdResultsHedge$WinScore), sd = sd(fdResultsHedge$WinScore))
+
+totalHedgeRand <- as.data.frame(cbind(myHedgeRand, winHedgeRand))
+totalHedgeRand$win <- ifelse(totalHedgeRand$myHedgeRand > totalHedgeRand$winHedgeRand, 1, 0)
+mean(totalHedgeRand$win)
+
+## Save winning probability means in CSV file - track over time
+
+winProb <- as.data.frame(matrix(c(Sys.Date(),mean(totalBigRand$win),mean(totalHedgeRand$win)),ncol = 3),
+                         colClasses = c('Date','numeric','numeric'))
+class(winProb$V1) <- 'Date'
+colnames(winProb) <- c('date','Big_Prob','Hedge_Prob')
+
+rounder4 <- function(x) {
+  r <- round(x,4)
+  return(r)
+}
+
+winProb[,2:3] <- sapply(winProb[,2:3], rounder4)
+
+
+## Read in old Data, and stack into new dataset
+
+setwd('~/Documents/ShinyMLB')
+wpOld <- read.csv('winProb.csv', stringsAsFactors = F)
+class(profitMarg[,1]) <- 'Date'
+winProb <- as.data.frame(rbind(wpOld, winProb))
+write.csv(winProb, 'winProb.csv', row.names = F)
+                         
+## Calc expected Daily $$ & % Return - save in CSV file
+
+bigDollar <- 500
+hedgeDollar <- 250
+
+bigProfit <- (bigDollar * 1.8 * mean(totalBigRand$win)) - bigDollar
+hedgeProfit <- (hedgeDollar * 1.8 * mean(totalHedgeRand$win)) - hedgeDollar
+
+profitMarg <- as.data.frame(matrix(c(Sys.Date(),bigProfit,hedgeProfit), ncol = 3),
+                            colClasses = c('Date','numer'))
+class(profitMarg$V1) <- 'Date'
+colnames(profitMarg) <- c('date','Big_Profit','Hedge_Profit')
+profitMarg$Total_Profit <- profitMarg$Big_Profit + profitMarg$Hedge_Profit
+
+rounder2 <- function(x) {
+  r <- round(x,2)
+  return(r)
+}
+
+profitMarg[,2:4] <- sapply(profitMarg[,2:4], rounder2)
+
+## Read in old Data, and stack into new dataset
+164 * 3 * 150
+setwd('~/Documents/ShinyMLB')
+pmOld <- read.csv('profitMarg.csv', stringsAsFactors = F)
+class(profitMarg[,1]) <- 'Date'
+profitMarg <- as.data.frame(rbind(pmOld, profitMarg))
+write.csv(profitMarg, 'profitMarg.csv', row.names = F)
+
+## Add chart(s) that shows change in win probability & profit over time
 

@@ -6,6 +6,12 @@ library(splitstackshape)
 library(reshape2)
 library(DescTools)
 library(stringr)
+library(rdrop2)
+
+drop_auth()
+drop_acc() %>%
+  select(uid, display_name, email_verified, quota_info.quota)
+drop_create('mlb_drop')
 
 ################################ MLB Data Pull - Using Pitch fX dataset #################################
 
@@ -20,13 +26,13 @@ library(stringr)
 ## Run below code to get up to date through 5/31
 
 directory <- '~/Desktop/Data Upload'
-date <- '2016-06-25'
+date <- '2016-06-28'
 
 pitchRxScraper <- function(startDate, endDate) {
   dat <- scrape(start = startDate, end = endDate)
   return(dat)
 }
-dat <- pitchRxScraper('2016-06-11', '2016-06-24')
+dat <- pitchRxScraper('2016-06-25', '2016-06-28')
 
 ## Create pitcher & at-bat files - these will be saved to your working directory
 
@@ -56,12 +62,13 @@ pitchRxPitch <- function(existing, newFile, directory, daterange){
   ## Make sure there is a file in there already
   
   if(file.exists(existing)) {
-    o <- read.csv(existing, stringsAsFactors = F)
+    o <- read.csv(url('https://www.dropbox.com/s/3xdmgvbqqw7rsky/pitch.csv?raw=1'), stringsAsFactors = F)
     pitch <- as.data.frame(rbind(o, pitch))
   }
   ## Stack old & new data to create new full dataset
-  
+
   write.csv(pitch, 'pitch.csv', row.names = F)
+  drop_upload('pitch.csv', dest = 'mlb_drop')
   return(pitch)
 }
 
@@ -71,7 +78,6 @@ pitchRxAtBat <- function(existing, newFile, directory, daterange) {
                   'pitcher_name', 'score', 'home_team_runs', 'away_team_runs', 'inning_side', 'gameday_link',
                   'date')]
   
-  library(splitstackshape)
   data <- as.data.frame(cSplit(data,
                                'gameday_link',
                                sep = '_'))
@@ -109,17 +115,18 @@ pitchRxAtBat <- function(existing, newFile, directory, daterange) {
   
   ## Read in old data if it exists
   if(file.exists(existing)) {
-    oldAtbat <- read.csv(existing, colClasses = c('numeric', 'numeric', 'numeric', 'numeric', 'numeric', 'character',
+    oldAtbat <- read.csv(url('https://www.dropbox.com/s/iijrlmz6rlsdndk/atbat.csv?raw=1'), colClasses = c('numeric', 'numeric', 'numeric', 'numeric', 'numeric', 'character',
                                                   'character', 'character', 'character', 'character', 'character', 
                                                   'numeric', 'numeric', 'character', 'Date', 'character', 'character', 'numeric'))
     data <- as.data.frame(rbind(data, oldAtbat))
   }
   write.csv(data, 'atbat.csv', row.names = F)
+  drop_upload('atbat.csv', dest = 'mlb_drop')
   return(data)
 }
 
-pitch <- pitchRxPitch('pitch.csv', dat, directory, '2016_06_11-2016_06_24')
-atbat <- pitchRxAtBat('atbat.csv', dat, directory, '2016_06_11-2016_06_24')
+pitch <- pitchRxPitch('pitch.csv', dat, directory, '2016_06_25-2016_06_28')
+atbat <- pitchRxAtBat('atbat.csv', dat, directory, '2016_06_25-2016_06_28')
 
 steals <- function(data) {
   dataset <- data[['atbat']]
@@ -141,13 +148,14 @@ steals <- function(data) {
   ## Read in historic data & stack with new data
   
   if(file.exists('batSteals.csv')){
-    oldBatSteals <- read.csv('batSteals.csv', stringsAsFactors = F)
+    oldBatSteals <- read.csv(url('https://www.dropbox.com/s/l2w5kjf9lbp4c9k/batSteals.csv?raw=1'), stringsAsFactors = F)
     dataset <- as.data.frame(rbind(dataset, oldBatSteals))  
   }
   
   ## Write full file back to CSV
   
   write.csv(dataset, 'batSteals.csv', row.names = F)
+  drop_upload('batSteals.csv', dest = 'mlb_drop')
   
   dataRunner <- dataRunner[,c('id', 'event', 'event_num', 'inning_side', 'inning', 'num', 'score', 'rbi', 'earned', 'gameday_link')]
   
@@ -176,13 +184,14 @@ steals <- function(data) {
   ## Write new data to individual CSV file
   
   if(file.exists('steals.csv')) {
-    oldStealsData <- read.csv('steals.csv', stringsAsFactors = F)
+    oldStealsData <- read.csv(url('https://www.dropbox.com/s/e25phembfes83x1/steals.csv?raw=1'), stringsAsFactors = F)
     sbs <- as.data.frame(rbind(sbs, oldStealsData))
   }
   
   ## Write full data to full CSV file
   
   write.csv(sbs, 'steals.csv', row.names = F)
+  drop_upload('steals.csv', dest = 'mlb_drop')
   
   ## Create outcome type variable
   
@@ -300,11 +309,12 @@ rbis <- function(data) {
   ## CREATE STACKER W/ OLD DATA
   
   if(file.exists('rbiDataFull.csv')) {
-    oldRBIBat <- read.csv('rbiDataFull.csv', stringsAsFactors = F)
+    oldRBIBat <- read.csv(url('https://www.dropbox.com/s/b5elm2fh803fjlm/rbiDataFull.csv?raw=1'), stringsAsFactors = F)
     rbiBat <- as.data.frame(rbind(rbiBat, oldRBIBat))
   }
   
   write.csv(rbiBat, 'rbiDataFull.csv', row.names = F)
+  drop_upload('rbiDataFull.csv', dest = 'mlb_drop')
   
   ## Create rbi data using runner dataset
   
@@ -324,11 +334,12 @@ rbis <- function(data) {
   ## CREATE STACKER W/ OLD DATA
   
   if(file.exists('rbiData.csv')){
-    oldRBIData <- read.csv('rbiData.csv', stringsAsFactors = F)
+    oldRBIData <- read.csv(url('https://www.dropbox.com/s/3aefqpmrp8zakr2/rbidata.csv?raw=1'), stringsAsFactors = F)
     rbiTotal <- as.data.frame(rbind(rbiTotal, oldRBIData))
   }
   
   write.csv(rbiTotal, 'rbiData.csv', row.names = F)
+  drop_upload('rbidata.csv', dest = 'mlb_drop')
   
   ## Calc average RBIs per outcome type - batter
   
@@ -428,11 +439,12 @@ runs <- function(data) {
   ## Save file & Read in old data
   
   if(file.exists('runBat.csv')){
-    oldRunBat <- read.csv('runBat.csv', stringsAsFactors = F)
+    oldRunBat <- read.csv(url('https://www.dropbox.com/s/ee6n33v4vqatc4f/runBat.csv?raw=1'), stringsAsFactors = F)
     runBat <- as.data.frame(rbind(runBat, oldRunBat))
   }
   
   write.csv(runBat, 'runBat.csv', row.names = F)
+  drop_upload('runBat.csv', dest = 'mlb_drop')
   
   ## Create totals by outcome type - pitcher
   
@@ -487,11 +499,12 @@ runs <- function(data) {
   ## Read old data & save to CSV
   
   if(file.exists('runsTotal.csv')){
-    oldRuns <- read.csv('runsTotal.csv', stringsAsFactors = F)
+    oldRuns <- read.csv(url('https://www.dropbox.com/s/xnfpklxg6hzr3py/runsTotal.csv?raw=1'), stringsAsFactors = F)
     runsDF <- as.data.frame(rbind(runsDF, oldRuns))
   }
   
   write.csv(runsDF, 'runsTotal.csv', row.names = F)
+  drop_upload('runsTotal.csv', dest = 'mlb_drop')
   
   ## Create totals by outcome type - pitcher
   
@@ -628,11 +641,12 @@ pitchRxPitches <- function(directory, oldFile, newFile){
   
   setwd(directory)
   if(file.exists(oldFile)){
-    oldData <- read.csv(oldFile, stringsAsFactors = F)
+    oldData <- read.csv(url('https://www.dropbox.com/s/5ydine2jdfx1o2y/numPitches.csv?raw=1'), stringsAsFactors = F)
     pitchers <- as.data.frame(rbind(pitchers, oldData))    
   }
   
   write.csv(pitchers, 'numPitches.csv', row.names = F)
+  drop_upload('numPitches.csv', dest = 'mlb_drop')
   
   ## Create average number of pitchers by pitcher
   
@@ -696,7 +710,7 @@ pitchRxBatPitches <- function(directory, oldFile, newFile){
   
   ## Read in old data
   if(file.exists(oldFile)){
-    oldData <- read.csv(oldFile, stringsAsFactors = F)
+    oldData <- read.csv(url('https://www.dropbox.com/s/opx9trw38wi7kn8/teamPitches.csv?raw=1'), stringsAsFactors = F)
     team.gamesTotal <- merge(oldData, team.games, by = 'team', all.x = T)
     team.gamesTotal[is.na(team.gamesTotal)] <- 0
     team.gamesTotal$num.games <- team.gamesTotal$num.games.x + team.gamesTotal$num.games.y
@@ -706,8 +720,9 @@ pitchRxBatPitches <- function(directory, oldFile, newFile){
   }
   
   write.csv(team.games, 'teamPitches.csv', row.names = F)
+  drop_upload('teamPitches.csv', dest='mlb_drop')
   
-  pitchers <- read.csv('numPitches.csv', stringsAsFactors = F)
+  pitchers <- read.csv(url('https://www.dropbox.com/s/5ydine2jdfx1o2y/numPitches.csv?raw=1'), stringsAsFactors = F)
   pitchers <- data.table(pitchers)
   pitcher.summary <- pitchers[,':='(mean.outs=mean(total.outs),mean.batters=mean(batters.faced),
                                     mean.entry.outs=mean(3*(first.batter.inning-1)+first.batter.outs)),by=pitcher]
@@ -763,40 +778,44 @@ playerMatch <- function(newDF, var1, var2, directory) {
            ifelse(g[,2] == 'Senger Peralta', 'David Peralta',
            ifelse(g[,2] == 'Douglas Fister', 'Doug Fister',
            ifelse(g[,2] == 'Devaris Gordon', 'Dee Gordon',
-                                                                                                      ifelse(g[,2] == 'Delino DeShieldsJr.', 'Delino DeShields',
-                                                                                                             ifelse(g[,2] == 'Frederick Freeman', 'Freddie Freeman',
-                                                                                                                    ifelse(g[,2] == 'Howard Kendrick', 'Howie Kendrick',
-                                                                                                                           ifelse(g[,2] == 'Ivan De JesusJr.', 'Ivan De Jesus',
-                                                                                                                                  ifelse(g[,2] == 'Jacob Realmuto', 'J.T. Realmuto',
-                                                                                                                                         ifelse(g[,2] == 'Jacob DeGrom', 'Jacob deGrom',
-                                                                                                                                                ifelse(g[,2] == 'Jacob Marisnick', 'Jake Marisnick',
-                                                                                                                                                       ifelse(g[,2] == 'JR Murphy', 'John Murphy',
-                                                                                                                                                              ifelse(g[,2] == 'Jonathan Moscot', 'Jon Moscot',
-                                                                                                                                                                     ifelse(g[,2] == 'Jonathan Gray', 'Jon Gray',
-                                                                                                                                                                            ifelse(g[,2] == 'Jonathan Jay', 'Jon Jay',
-                                                                                                                                                                                   ifelse(g[,2] == 'Jonathon Niese', 'Jon Niese',
-                                                                                                                                                                                          ifelse(g[,2] == 'Jungho Kang', 'Jung-Ho Kang',
-                                                                                                                                                                                                 ifelse(g[,2] == 'Khristopher Davis', 'Khris Davis',
-                                                                                                                                                                                                        ifelse(g[,2] == 'Manuel Machado', 'Manny Machado',
-                                                                                                                                                                                                               ifelse(g[,2] == 'Matthew Adams', 'Matt Adams',
-                                                                                                                                                                                                                      ifelse(g[,2] == 'Matt Den Dekker', 'Matt den Dekker',
-                                                                                                                                                                                                                             ifelse(g[,2] == 'Matthew Duffy', 'Matt Duffy',
-                                                                                                                                                                                                                                    ifelse(g[,2] == 'Matthew Joyce', 'Matt Joyce',
-                                                                                                                                                                                                                                           ifelse(g[,2] == 'Matthew Wisler', 'Matt Wisler',
-                                                                                                                                                                                                                                                  ifelse(g[,2] == 'Mitchell Moreland', 'Mitch Moreland',
-                                                                                                                                                                                                                                                         ifelse(g[,2] == 'B.J. Upton', 'Melvin Upton Jr.',
-                                                                                                                                                                                                                                                                ifelse(g[,2] == 'Nathan Karns', 'Nate Karns',
-                                                                                                                                                                                                                                                                       ifelse(g[,2] == 'Nicholas Tropeano', 'Nick Tropeano',
-                                                                                                                                                                                                                                                                              ifelse(g[,2] == 'David Herrera', 'Odubel Herrera',
-                                                                                                                                                                                                                                                                                     ifelse(g[,2] == 'Raciel Iglesias', 'Raisel Iglesias',
-                                                                                                                                                                                                                                                                                            ifelse(g[,2] == 'Steven Souza', 'Steve Souza',
-                                                                                                                                                                                                                                                                                                   ifelse(g[,2] == 'Timothy Beckham', 'Tim Beckham',
-                                                                                                                                                                                                                                                                                                          ifelse(g[,2] == 'Wellington Castillo', 'Welington Castillo',
-                                                                                                                                                                                                                                                                                                                 ifelse(g[,2] == 'Zachary Davies', 'Zach Davies',
-                                                                                                                                                                                                                                                                                                                        ifelse(g[,2] == 'Zachary Cozart', 'Zack Cozart',
-                                                                                                                                                                                                                                            ifelse(g[,2] == 'Matthew Andriese', 'Matt Andriese', as.character(g[,2]))))))))))))))))))))))))))))))))))))))))))))))
+           ifelse(g[,2] == 'Delino DeShieldsJr.', 'Delino DeShields',
+           ifelse(g[,2] == 'Frederick Freeman', 'Freddie Freeman',
+           ifelse(g[,2] == 'Howard Kendrick', 'Howie Kendrick',
+           ifelse(g[,2] == 'Ivan De JesusJr.', 'Ivan De Jesus',
+           ifelse(g[,2] == 'Jacob Realmuto', 'J.T. Realmuto',
+           ifelse(g[,2] == 'Jacob DeGrom', 'Jacob deGrom',
+           ifelse(g[,2] == 'Jacob Marisnick', 'Jake Marisnick',
+           ifelse(g[,2] == 'JR Murphy', 'John Murphy',
+           ifelse(g[,2] == 'Jonathan Moscot', 'Jon Moscot',
+           ifelse(g[,2] == 'Jonathan Gray', 'Jon Gray',
+           ifelse(g[,2] == 'Jonathan Jay', 'Jon Jay',
+           ifelse(g[,2] == 'Jonathon Niese', 'Jon Niese',
+           ifelse(g[,2] == 'Jungho Kang', 'Jung-Ho Kang',
+           ifelse(g[,2] == 'Khristopher Davis', 'Khris Davis',
+           ifelse(g[,2] == 'Manuel Machado', 'Manny Machado',
+           ifelse(g[,2] == 'Matthew Adams', 'Matt Adams',
+           ifelse(g[,2] == 'Matt Den Dekker', 'Matt den Dekker',
+           ifelse(g[,2] == 'Matthew Duffy', 'Matt Duffy',
+           ifelse(g[,2] == 'Matthew Joyce', 'Matt Joyce',
+           ifelse(g[,2] == 'Matthew Wisler', 'Matt Wisler',
+           ifelse(g[,2] == 'Mitchell Moreland', 'Mitch Moreland',
+           ifelse(g[,2] == 'B.J. Upton', 'Melvin Upton Jr.',
+           ifelse(g[,2] == 'Nathan Karns', 'Nate Karns',
+           ifelse(g[,2] == 'Nicholas Tropeano', 'Nick Tropeano',
+           ifelse(g[,2] == 'David Herrera', 'Odubel Herrera',
+           ifelse(g[,2] == 'Raciel Iglesias', 'Raisel Iglesias',
+           ifelse(g[,2] == 'Steven Souza', 'Steve Souza',
+           ifelse(g[,2] == 'Timothy Beckham', 'Tim Beckham',
+           ifelse(g[,2] == 'Wellington Castillo', 'Welington Castillo',
+           ifelse(g[,2] == 'Zachary Davies', 'Zach Davies',
+           ifelse(g[,2] == 'Zachary Cozart', 'Zack Cozart',
+           ifelse(g[,2] == 'Matthew Andriese', 'Matt Andriese', as.character(g[,2]))))))))))))))))))))))))))))))))))))))))))))))
+  g[,2] <- ifelse(g[,2] =="Chase D'Arnaud", "Chase d'Arnaud", 
+           ifelse(g[,2] == 'Matthew Davidson', 'Matt Davidson', 
+           ifelse(g[,2] == 'Tim Anderson', 'Timothy Anderson', as.character(g[,2]))))
   setwd(directory)
   write.csv(g, paste0(var2,'.csv'), row.names = F)
+  drop_upload(paste0(var2,'.csv'), dest = 'mlb_drop')
   return(g)
 }
 
@@ -894,7 +913,7 @@ bwPlot <- function(df, var2) {
   g$labels$fill <- 'Clusters'
   g
 }
-bwPlot(finalPitch, colnames(finalPitch)[27])
+bwPlot(finalPitch, colnames(finalPitch)[2])
 colnames(finalPitch)
 
 ## Creates modeling file - update with pitch type
@@ -1148,7 +1167,7 @@ modelFile <- function(predictData, clusterData, batterData, pitcherData, modelin
   if(type == 'historic') {
     write.csv(modelDF, 'modelFile.csv', row.names = F)  
   } else {
-    write.csv(modelDF, paste0('modelFileNew_',date,'.csv', row.names = F))
+    write.csv(modelDF, paste0('modelFileNew_',date,'_.csv', row.names = F))
   }
   modelDF <- modelDF[order(-modelDF$batter, modelDF$pitcher),]
   modelDF$batter <- ifelse(modelDF$batter == 0, row.names(modelDF), modelDF$batter)
@@ -1266,6 +1285,7 @@ err
 
 ## Pull rotogrinders data from given day
 library(stringr)
+
 date <- Sys.Date()
 salaryData <- function(day, location) {
   
@@ -1457,6 +1477,39 @@ salaryData <- function(day, location) {
 }
 newSalary <- salaryData(date, directory)
 
+## Check if players are missing - Caused by players who have no stats since 2015 season, or mismatched names between BR & RG
+
+salaryNameChecker <- function(salary, batterName, pitcherName) {
+  
+  ## Batters
+  
+  missBat <- merge(salary, batterName, by.x = 'player', by.y = 'batter_name', all.x = T)
+  missBat <- filter(missBat, !position %in% c('SP','P','pitcher'))
+  missBat <- filter(missBat, is.na(batter))
+  missBat <- missBat[,c('player','team.x','position')]
+  
+  ## Pitchers
+  
+  missPitch <- merge(salary, pitcherName, by.x = 'player', by.y = 'pitcher_name', all.x =T)
+  missPitch <- filter(missPitch, position %in% c('SP','P','pitcher'))
+  missPitch <- filter(missPitch, is.na(pitcher))
+  missPitch <- missPitch[,c('player','team.x','position')]
+  
+  ## Stack Them
+  
+  missPlayers <- as.data.frame(rbind(missBat, missPitch))
+  missPlayers$dups <- duplicated(missPlayers$player)
+  missPlayers <- filter(missPlayers, dups == F)
+  missPlayers$dups <- NULL
+  return(missPlayers)
+}
+salaryNameChecker(newSalary, batterLookup, pitcherLookup)
+
+
+## If pitcher is batting for themselves in an AL park
+## newSalary$player <- ifelse(newSalary$player != 'Madison Bumgarner', newSalary$player,
+##                           ifelse(newSalary$position == 'SP' | newSalary$position == 'P', 'noName', newSalary$player))
+
 ## For Doubleheaders
 
 #newSalary$combo <- paste0(newSalary$gametime,newSalary$home)
@@ -1559,7 +1612,20 @@ newDayData <- as.matrix(newDayData[,c(7:13,15:21,23:length(newDayData))])
 
 probNew <- as.data.frame(matrix(predict(boost2, newDayData), ncol = 7, byrow = T))
 
-## Combine predictions with pitcher Info
+checker <- as.data.frame(cbind(totalRoto, probNew))
+
+## Below - For debugging purposes
+#probs <- probNew
+#predictionFile <- totalRoto
+#salaryInfo <- newSalary
+#batLookup <- batterLookup
+#pitchLookup <- pitcherLookup
+#sbB <- batSteals
+#sbP <- pitchSteals
+#rbiB <- batRBIs
+#rbiP <- pitchRBIs
+#runB <- batRuns
+#runP <- pitchRuns
 
 ## Take expected outcome from model & merge with salary & player info
 
@@ -1928,7 +1994,7 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
   totalBatterProb <- as.data.frame(rbind(probStarterHit, probBullpenG)) 
   
   ## Create DF to exclude pitchers (pitcher batting stats don't count)
-  
+  head(totalBatterProb)
   totalBatterEx <- merge(totalBatterProb, pitchLookup, by.x = 'batter', by.y = 'pitcher')
   totalBatterEx <- merge(totalBatterEx, pitchMod, by.x = 'batter', by.y = 'pitcher')
   totalBatterEx <- filter(totalBatterEx, total > 10)
@@ -2024,7 +2090,9 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
   colnames(totalPlayerOutcome) <- c('player_code', 'dkExp', 'fdExp', 'yahooExp')
   
   ## Create DF with salary info, positions & lineup spot for each player
-
+  salaryInfo$dups <- duplicated(paste0(salaryInfo$player, salaryInfo$site))
+  salaryInfo <- filter(salaryInfo, dups == F)
+  salaryInfo$dups <- NULL
   salaryInfo$conc <- paste0(salaryInfo$player,"_", salaryInfo$team)
   salaryInfo2 <- salaryInfo[,c(12,5,7,8,11)]
   sal <- dcast(salaryInfo2, conc ~ site, value.var = 'salary')
@@ -2097,6 +2165,11 @@ predictionAggs <- function(probs, predictionFile, bullpenData, salaryInfo, batLo
 
 finalPreds <- predictionAggs(probNew, totalRoto, bullpenData, newSalary, batterLookup, pitcherLookup, batSteals, pitchSteals,batRBIs, pitchRBIs,batRuns, pitchRuns, date)
 
+## Write results to CSV for dashboards
+
+setwd('~/Documents/ShinyMLB')
+write.csv(finalPreds, paste0('finalPreds_',Sys.Date(),'.csv'), row.names = F)
+
 scatPlotPreds <- function(dataframe, var1, var2, site, position) {
   bb <- dataframe[grep(position,dataframe[,site]),]
   ggplot(bb, aes_string(x = var1, y = var2, label = 'player')) +
@@ -2106,4 +2179,5 @@ scatPlotPreds <- function(dataframe, var1, var2, site, position) {
 }
 
 scatPlotPreds(finalPreds, 'fdSal', 'fdExp','fdPos', 'OF')
+
 

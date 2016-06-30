@@ -4,12 +4,29 @@ library(splitstackshape)
 library(dplyr)
 library(stringr)
 
-finalPreds2 <- read.csv('finalPreds.csv', stringsAsFactors = F)
+## Create DF that has new days data
+
+finalPreds2 <- read.csv(paste0('finalPreds_',Sys.Date(),'.csv'), stringsAsFactors = F)
+
+## Create User Interface
 
 shinyUI(fluidPage(
+  
+  ## Title of the page
+  
   headerPanel('Daily Fantasy Picks'),
+  
+  ## Create sidebar that has positions & players to select from each position
+  ## Figure out how to make drop downs & font size smaller
+  
   sidebarPanel(
+    
+    ## Attempt at making font smaller, don't think it's working
+    
     tags$style(type='text/css', ".selectize-input { font-size: 8px; line-height: 8px;} .selectize-dropdown { font-size: 8px; line-height: 8px; }"),
+    
+    ## Create inputs users can select from - one for each roster slot
+    
     selectInput(inputId = 'FantasySite',
                 label = 'Fantasy Baseball Site',
                 choices= c('Draft Kings', 'FanDuel', 'Yahoo'),
@@ -22,6 +39,9 @@ shinyUI(fluidPage(
                 label = 'Pitcher1',
                 choices= as.character(finalPreds2[grep('SP', finalPreds2$dkPos), 2]),
                 selected = as.character(finalPreds2[grep('SP', finalPreds2$dkPos)[1], 2]),selectize=F,multiple=F),
+    
+    ## DraftKings has two pitcher slots
+    
     p("Select a 2nd Pitcher for DK"),
     selectInput(inputId = 'pitcher2',
                 label = 'Pitcher2',
@@ -61,6 +81,8 @@ shinyUI(fluidPage(
                 selected = as.character(finalPreds2[grep('OF', finalPreds2$dkPos)[3], 2]),selectize=F,multiple=F),
     width = 4
   ),
+  
+  ## Create Main Panel to display data
 
   mainPanel(
     

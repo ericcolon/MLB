@@ -1,6 +1,3 @@
-setwd('~/Documents/ShinyMLB')
-write.csv(finalPreds, 'finalPreds.csv', row.names = )
-
 library(rsconnect)
 rsconnect::setAccountInfo(name = 'wesleypasfield', 
                           token = '2732D4C57528298E4546CF9DB272F2CF', 
