@@ -9,6 +9,7 @@ colnames(fdResults) <- c('EntryID','Sport','date','Title','SalaryCap','Score','W
 fdResults$X <- NULL
 fdResults <- filter(fdResults, !is.na(Score))
 fdResults <- filter(fdResults, !is.na(WinScore))
+fdResults <- filter(fdResults, Entries == 100)
 fdResults$win <- as.numeric(ifelse(fdResults$Winning > 0, 1, 0))
 fdResults$diff <- fdResults$Score - fdResults$WinScore
 fdResults <- as.data.frame(cSplit(fdResults, 'Title', sep = '('))
@@ -49,6 +50,8 @@ ws <- merge(ws, dates, by = 'date')
 ## Create loess predictions for both unweighted & weighted observations
 
 ## Unweighted
+
+library(plotly)
 
 m <- loess(Score ~ as.numeric(date), data = fdResults)
 f <- with(predict(m, se = T), data.frame(fit, se.fit))
@@ -146,17 +149,12 @@ pdw <- plot_ly(x = xw, y = round(yw1, 4), type = 'scatter', name = 'My Score Dis
   add_trace(x = xw2, y = yw2, fill = "tozeroy", showlegend = F, name = 'Winning Score Dist Fill', line = list(color = 'orange')) %>%
   layout(title = 'Probability Distribution - My Score vs. Winning Score Weighted by Investment per Day', xaxis = list(title = 'Score'), yaxis = list(title = 'Frequency'))
 
+## Publish plots to Plot.ly - need to register your own account
 
-## Publish plots to Plot.ly
-
-Sys.setenv('plotly_username'='wesleypasfield')
-Sys.setenv('plotly_api_key'='nka11fh8p8')
 plotly_POST(p, filename = 'mlbScatter')
 plotly_POST(wp, filename = 'mlbScatterWeighted')
 plotly_POST(pd, filename = 'mlbProbDist')
 plotly_POST(pdw, filename = 'mlbProbDistWeighted')
-
-library(plotly)
 
 ## Two sample T Test - evaluate if there is a significant difference in means
 
@@ -215,10 +213,12 @@ mean(totalHedgeRand$win)
 
 ## Save winning probability means in CSV file - track over time
 
-winProb <- as.data.frame(matrix(c(Sys.Date(),mean(totalBigRand$win),mean(totalHedgeRand$win)),ncol = 3),
-                         colClasses = c('Date','numeric','numeric'))
-class(winProb$V1) <- 'Date'
+setClass('myDate')
+setAs('character', 'myDate', function(from) as.Date(from, format="%Y-%m-%d") )
+
+winProb <- as.data.frame(matrix(c(Sys.Date(),mean(totalBigRand$win),mean(totalHedgeRand$win)),ncol = 3))
 colnames(winProb) <- c('date','Big_Prob','Hedge_Prob')
+class(winProb[,1]) <- 'Date'
 
 rounder4 <- function(x) {
   r <- round(x,4)
@@ -227,15 +227,15 @@ rounder4 <- function(x) {
 
 winProb[,2:3] <- sapply(winProb[,2:3], rounder4)
 
-
 ## Read in old Data, and stack into new dataset
 
 setwd('~/Documents/ShinyMLB')
-wpOld <- read.csv('winProb.csv', stringsAsFactors = F)
-class(profitMarg[,1]) <- 'Date'
+wpOld <- read.csv('winProb.csv', stringsAsFactors = F, colClasses = c('myDate', 'numeric', 'numeric'))
 winProb <- as.data.frame(rbind(wpOld, winProb))
+class(winProb[,1]) <- 'Date'
+winProb
 write.csv(winProb, 'winProb.csv', row.names = F)
-                         
+                  
 ## Calc expected Daily $$ & % Return - save in CSV file
 
 bigDollar <- 500
@@ -244,8 +244,7 @@ hedgeDollar <- 250
 bigProfit <- (bigDollar * 1.8 * mean(totalBigRand$win)) - bigDollar
 hedgeProfit <- (hedgeDollar * 1.8 * mean(totalHedgeRand$win)) - hedgeDollar
 
-profitMarg <- as.data.frame(matrix(c(Sys.Date(),bigProfit,hedgeProfit), ncol = 3),
-                            colClasses = c('Date','numer'))
+profitMarg <- as.data.frame(matrix(c(Sys.Date(),bigProfit,hedgeProfit), ncol = 3))
 class(profitMarg$V1) <- 'Date'
 colnames(profitMarg) <- c('date','Big_Profit','Hedge_Profit')
 profitMarg$Total_Profit <- profitMarg$Big_Profit + profitMarg$Hedge_Profit
@@ -258,11 +257,12 @@ rounder2 <- function(x) {
 profitMarg[,2:4] <- sapply(profitMarg[,2:4], rounder2)
 
 ## Read in old Data, and stack into new dataset
-164 * 3 * 150
+
 setwd('~/Documents/ShinyMLB')
-pmOld <- read.csv('profitMarg.csv', stringsAsFactors = F)
-class(profitMarg[,1]) <- 'Date'
+pmOld <- read.csv('profitMarg.csv', stringsAsFactors = F, colClasses = c('myDate','numeric','numeric','numeric'))
 profitMarg <- as.data.frame(rbind(pmOld, profitMarg))
+class(profitMarg[,1]) <- 'Date'
+profitMarg
 write.csv(profitMarg, 'profitMarg.csv', row.names = F)
 
 ## Add chart(s) that shows change in win probability & profit over time

@@ -1,5 +1,4 @@
 library(pitchRx)
-library(RSQLite)
 library(dplyr)
 library(data.table)
 library(splitstackshape)
@@ -8,10 +7,7 @@ library(DescTools)
 library(stringr)
 library(rdrop2)
 
-drop_auth()
-drop_acc() %>%
-  select(uid, display_name, email_verified, quota_info.quota)
-drop_create('mlb_drop')
+## Set up your own dropbox
 
 ################################ MLB Data Pull - Using Pitch fX dataset #################################
 
@@ -22,17 +18,22 @@ drop_create('mlb_drop')
 ## Insert desired start & end date, and directory you want to put the file in - see example "new"
 
 ## Function to scrape data from pitch Fx database - saved as df name 'dat'
-## Currently updated through 5/20/2016 - contains all of 2015 season + all data through 5/20/2016 for 2016 season
-## Run below code to get up to date through 5/31
+## Currently updated through 7/4/2016 - contains all of 2015 season + all data through 7/4/2016 for 2016 season
+
+## Set working directory & Date
 
 directory <- '~/Desktop/Data Upload'
-date <- '2016-06-28'
+date <- Sys.Date()
+
+## Run function to pull information for games in desired date range
+## Note - more than ~18-20 will likely exceed the threshold for a single pull
+## Easy solution - loop in < 18 day increments over desired time frame
 
 pitchRxScraper <- function(startDate, endDate) {
   dat <- scrape(start = startDate, end = endDate)
   return(dat)
 }
-dat <- pitchRxScraper('2016-06-25', '2016-06-28')
+dat <- pitchRxScraper('2016-07-05', '2016-07-05')
 
 ## Create pitcher & at-bat files - these will be saved to your working directory
 
@@ -125,8 +126,8 @@ pitchRxAtBat <- function(existing, newFile, directory, daterange) {
   return(data)
 }
 
-pitch <- pitchRxPitch('pitch.csv', dat, directory, '2016_06_25-2016_06_28')
-atbat <- pitchRxAtBat('atbat.csv', dat, directory, '2016_06_25-2016_06_28')
+pitch <- pitchRxPitch('pitch.csv', dat, directory, '2016_07_05-2016_07_05')
+atbat <- pitchRxAtBat('atbat.csv', dat, directory, '2016_07_05-2016_07_05')
 
 steals <- function(data) {
   dataset <- data[['atbat']]
@@ -810,9 +811,14 @@ playerMatch <- function(newDF, var1, var2, directory) {
            ifelse(g[,2] == 'Zachary Davies', 'Zach Davies',
            ifelse(g[,2] == 'Zachary Cozart', 'Zack Cozart',
            ifelse(g[,2] == 'Matthew Andriese', 'Matt Andriese', as.character(g[,2]))))))))))))))))))))))))))))))))))))))))))))))
-  g[,2] <- ifelse(g[,2] =="Chase D'Arnaud", "Chase d'Arnaud", 
+  g[,2] <- ifelse(g[,1] == 596043, 'Daniel Mengden',
+           ifelse(g[,2] =="Chase D'Arnaud", "Chase d'Arnaud", 
            ifelse(g[,2] == 'Matthew Davidson', 'Matt Davidson', 
-           ifelse(g[,2] == 'Tim Anderson', 'Timothy Anderson', as.character(g[,2]))))
+           ifelse(g[,2] == 'Tim Anderson', 'Timothy Anderson', 
+           ifelse(g[,2] == 'Thomas Joseph', 'Tommy Joseph',
+           ifelse(g[,2] == 'Alex Gonzalez', 'Chi Chi Gonzalez',
+           ifelse(g[,2] == 'Daniel Worth', 'Danny Worth',
+           ifelse(g[,2] == 'Hyun-Jin Ryu', 'Hyun-jin Ryu', as.character(g[,2])))))))))
   setwd(directory)
   write.csv(g, paste0(var2,'.csv'), row.names = F)
   drop_upload(paste0(var2,'.csv'), dest = 'mlb_drop')
@@ -1239,7 +1245,7 @@ boost2 <- xgboost(param = params,
 #model <- xgb.dump(boost2, with.stats = T)
 
 names <- dimnames(trainMatrix)[[2]]
-
+options(scipen=999)
 #importance_matrix <- xgb.importance(names, model = boost2)
 
 #xgb.plot.importance(importance_matrix)
@@ -1278,15 +1284,40 @@ err[7] <- round((1- mean(prob[prob$outcome == 7,'error'])) / (nrow(prob[prob$out
 
 err
 
+errScore <- 0
+
+errScore[1] <- 1
+errScore[2] <- 2
+errScore[3] <- 3 
+errScore[4] <- 4 
+errScore[5] <- 1 
+errScore[6] <- 1 
+errScore[7] <- 0 
+
+outcomeRate <- 0
+
+outcomeRate[1] <- (nrow(prob[prob$outcome == 1,])) / nrow(prob)
+outcomeRate[2] <- (nrow(prob[prob$outcome == 2,])) / nrow(prob) 
+outcomeRate[3] <- (nrow(prob[prob$outcome == 3,])) / nrow(prob)
+outcomeRate[4] <- (nrow(prob[prob$outcome == 4,])) / nrow(prob)
+outcomeRate[5] <- (nrow(prob[prob$outcome == 5,])) / nrow(prob)
+outcomeRate[6] <- (nrow(prob[prob$outcome == 6,])) / nrow(prob)
+outcomeRate[7] <- (nrow(prob[prob$outcome == 7,])) / nrow(prob)
+
+errs <- as.data.frame(cbind(err, cbind(outcomeRate, errScore)))
+errs$errWeight <- errs$err * errs$errScore * errs$outcomeRate
+
+sum(errs$errWeight)
+
 ####### ROTOGRINDERS SALARY DATA PULL ###########
 
 ## Insert date in YYYY-MM-DD form & location you'd like to save file in quotes
 ## ex - salaryData('2016-04-05', '~/Documents/Northwestern/498/MLB Scraped')
 
 ## Pull rotogrinders data from given day
-library(stringr)
 
 date <- Sys.Date()
+directory <- '~/Desktop/Data Upload'
 salaryData <- function(day, location) {
   
   ## Load required packages
@@ -1505,7 +1536,6 @@ salaryNameChecker <- function(salary, batterName, pitcherName) {
 }
 salaryNameChecker(newSalary, batterLookup, pitcherLookup)
 
-
 ## If pitcher is batting for themselves in an AL park
 ## newSalary$player <- ifelse(newSalary$player != 'Madison Bumgarner', newSalary$player,
 ##                           ifelse(newSalary$position == 'SP' | newSalary$position == 'P', 'noName', newSalary$player))
@@ -1611,8 +1641,6 @@ newDayData$un <- NULL
 newDayData <- as.matrix(newDayData[,c(7:13,15:21,23:length(newDayData))])
 
 probNew <- as.data.frame(matrix(predict(boost2, newDayData), ncol = 7, byrow = T))
-
-checker <- as.data.frame(cbind(totalRoto, probNew))
 
 ## Below - For debugging purposes
 #probs <- probNew
@@ -2178,6 +2206,6 @@ scatPlotPreds <- function(dataframe, var1, var2, site, position) {
     geom_smooth()
 }
 
-scatPlotPreds(finalPreds, 'fdSal', 'fdExp','fdPos', 'OF')
+scatPlotPreds(finalPreds, 'fdSal', 'fdExp','fdPos', 'SP')
 
 
