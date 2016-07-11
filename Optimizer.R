@@ -2,9 +2,11 @@
 
 ## Create optimization data frame for FanDuel
 
-finalPredsOpt <- filter(finalPreds, substr(gametime, 1, 1) >= 7)
+library(Rglpk)
+finalPredsOpt <- finalPreds
+#finalPredsOpt <- filter(finalPreds, substr(gametime, 1, 1) >= 7)
 finalPredsOpt <- finalPredsOpt[,c('player','fdSal','fdPos','fdExp')]
-finalPredsOpt <- filter(finalPredsOpt, player != 'Lonnie Chisenhall')
+finalPredsOpt <- filter(finalPredsOpt, !player %in% c('Adeiny Hechavarria'))
 finalPredsOpt <- filter(finalPredsOpt, fdExp > 0)
 finalPredsMatrix <- rbind(as.numeric(finalPredsOpt$fdPos == 'C'),
                           as.numeric(finalPredsOpt$fdPos == '1B'),
@@ -15,13 +17,15 @@ finalPredsMatrix <- rbind(as.numeric(finalPredsOpt$fdPos == 'C'),
                           as.numeric(finalPredsOpt$fdPos == 'SP'),
                           finalPredsOpt$fdSal)
 
-## Objective Function
+## Parameters for linear optimization
 
 obj.func <- finalPredsOpt$fdExp
 num.players <- nrow(finalPredsOpt)
 var.types <- rep("B", num.players)
 direction <- c('==','==','==','==','==','==','==','<=')
 rhs <- c(1,1,1,1,1,3,1,35)
+
+## Optimization
 
 linOpt <- Rglpk_solve_LP(obj = obj.func, 
                          mat = finalPredsMatrix, 

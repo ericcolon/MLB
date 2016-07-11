@@ -33,7 +33,7 @@ pitchRxScraper <- function(startDate, endDate) {
   dat <- scrape(start = startDate, end = endDate)
   return(dat)
 }
-dat <- pitchRxScraper('2016-07-05', '2016-07-05')
+dat <- pitchRxScraper('2016-07-06', '2016-07-08')
 
 ## Create pitcher & at-bat files - these will be saved to your working directory
 
@@ -126,8 +126,8 @@ pitchRxAtBat <- function(existing, newFile, directory, daterange) {
   return(data)
 }
 
-pitch <- pitchRxPitch('pitch.csv', dat, directory, '2016_07_05-2016_07_05')
-atbat <- pitchRxAtBat('atbat.csv', dat, directory, '2016_07_05-2016_07_05')
+pitch <- pitchRxPitch('pitch.csv', dat, directory, '2016_07_06-2016_07_08')
+atbat <- pitchRxAtBat('atbat.csv', dat, directory, '2016_07_06-2016_07_08')
 
 steals <- function(data) {
   dataset <- data[['atbat']]
@@ -919,7 +919,7 @@ bwPlot <- function(df, var2) {
   g$labels$fill <- 'Clusters'
   g
 }
-bwPlot(finalPitch, colnames(finalPitch)[2])
+bwPlot(finalPitch, colnames(finalPitch)[9])
 colnames(finalPitch)
 
 ## Creates modeling file - update with pitch type
@@ -1363,8 +1363,8 @@ salaryData <- function(day, location) {
     grinders <- gsub('\\n', '', grinders)
     grinders <- gsub("                            ", "_", grinders)
     grinders <- gsub("                        ", "_", grinders)
-
-    ## Remove timestamp from beginning of pull
+ 
+## Remove timestamp from beginning of pull
     
     gc <- str_sub(grinders[1:30], start = -5)
     gc <- ifelse(gc == 'PM ET', gc, 'drop')
