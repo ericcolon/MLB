@@ -8,7 +8,9 @@ library(stringr)
 library(rdrop2)
 
 ## Set up your own dropbox
-
+drop_auth
+drop_acc() %>%
+  select(uid, display_name, email_verified, quota_info.quota)
 ################################ MLB Data Pull - Using Pitch fX dataset #################################
 
 ## To start - make sure you have all required files in your working directory
@@ -33,7 +35,7 @@ pitchRxScraper <- function(startDate, endDate) {
   dat <- scrape(start = startDate, end = endDate)
   return(dat)
 }
-dat <- pitchRxScraper('2016-07-06', '2016-07-08')
+dat <- pitchRxScraper('2016-07-09', '2016-07-22')
 
 ## Create pitcher & at-bat files - these will be saved to your working directory
 
